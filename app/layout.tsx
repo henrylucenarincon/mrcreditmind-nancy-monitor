@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://panel.mrcreditmind.com"),
   title: "Nancy Monitor | Panel interno de conversaciones de Mr.CREDITMIND",
   description:
     "Nancy Monitor es el panel interno de Mr.CREDITMIND para monitorear conversaciones, actividad comercial y seguimiento de leads en tiempo real.",
