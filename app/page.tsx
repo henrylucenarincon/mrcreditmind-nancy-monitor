@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   ArrowLeft,
   Layers3,
@@ -396,18 +397,40 @@ export default function HomePage() {
     <main className="min-h-screen bg-black text-white lg:h-screen lg:overflow-hidden">
       <div className="mx-auto flex min-h-screen max-w-[1700px] flex-col px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:px-6 lg:py-8">
         <div className="mb-6 lg:mb-8">
-          <p className="mb-2 text-xs uppercase tracking-[0.35em] text-zinc-500">
-            MR.CREDITMIND
-          </p>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="mb-4 flex items-center gap-3 sm:gap-4">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-zinc-800 bg-zinc-950 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] sm:h-14 sm:w-14">
+                  <Image
+                    src="/brand/nancy-mark.png"
+                    alt="Nancy Monitor"
+                    fill
+                    className="object-cover"
+                    sizes="56px"
+                    priority
+                  />
+                </div>
 
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
-                Nancy Monitor
-              </h1>
-              <p className="mt-2 text-sm text-zinc-400 sm:text-base">
-                Panel interno de monitoreo de conversaciones
-              </p>
+                <div className="min-w-0">
+                  <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
+                    Nancy Monitor
+                  </h1>
+                  <p className="mt-1 text-sm text-zinc-400 sm:text-base">
+                    Panel interno de monitoreo de conversaciones
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <Image
+                  src="/brand/mrcreditmind-logo.svg"
+                  alt="Mr. CREDITMIND"
+                  width={220}
+                  height={40}
+                  className="h-auto w-[170px] opacity-90 sm:w-[200px] lg:w-[220px]"
+                  priority
+                />
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
