@@ -1,6 +1,4 @@
 
-
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -11,9 +9,11 @@ import {
   Layers3,
   LogOut,
   MessageSquare,
+  Moon,
   Phone,
   RefreshCw,
   Search,
+  SunMedium,
   User,
 } from "lucide-react";
 
@@ -56,22 +56,36 @@ type LeadSummary = {
   lastMessageAt: string;
 };
 
+type ThemeMode = "dark" | "light";
+
 const PUERTO_RICO_TIMEZONE = "America/Puerto_Rico";
-const COLORS = {
-  pageBg: "#141214",
-  panelBg: "#1A191B",
-  panelBgSoft: "#201F21",
-  cardBg: "#151416",
-  border: "rgba(255,255,255,0.08)",
-  borderSoft: "rgba(184,161,127,0.18)",
-  gold: "#B8A17F",
-  goldSoft: "#DCD1BF",
-  cream: "#F0EBE5",
-  muted: "#B8B0A5",
-  textSoft: "#DCD1BF",
-  blue: "#2A4059",
-  blueSoft: "#4B5F82",
-  dark: "#2A2829",
+
+const UI = {
+  border: "var(--border)",
+  borderStrong: "var(--border-strong)",
+  borderSoft: "var(--border-soft)",
+  panel: "var(--panel)",
+  panelSoft: "var(--panel-soft)",
+  card: "var(--card)",
+  cardHover: "var(--card-hover)",
+  fg: "var(--foreground)",
+  fgSoft: "var(--foreground-soft)",
+  muted: "var(--muted)",
+  gold: "var(--brand-gold)",
+  blue: "var(--brand-blue)",
+  blueSoft: "var(--brand-blue-soft)",
+  successBg: "var(--status-success-bg)",
+  successBorder: "var(--status-success-border)",
+  successText: "var(--status-success-text)",
+  infoBg: "var(--status-info-bg)",
+  infoBorder: "var(--status-info-border)",
+  infoText: "var(--status-info-text)",
+  dangerBg: "var(--status-danger-bg)",
+  dangerBorder: "var(--status-danger-border)",
+  dangerText: "var(--status-danger-text)",
+  warningBg: "var(--status-warning-bg)",
+  warningBorder: "var(--status-warning-border)",
+  warningText: "var(--status-warning-text)",
 };
 
 function truncateText(text: string | null, max = 72) {
@@ -155,48 +169,80 @@ function normalizeYesNo(value: string | null | undefined) {
   return value || "No definido";
 }
 
-function getBuyingIntentTone(value: string | null | undefined) {
+function getBuyingIntentMeta(value: string | null | undefined) {
   const v = (value || "").trim().toLowerCase();
 
   if (v === "alto") {
-    return "border-[rgba(184,161,127,0.38)] bg-[rgba(184,161,127,0.14)] text-[#F0EBE5]";
+    return {
+      border: UI.successBorder,
+      background: UI.successBg,
+      color: UI.successText,
+    };
   }
 
   if (v === "medio") {
-    return "border-[rgba(75,95,130,0.38)] bg-[rgba(75,95,130,0.18)] text-[#DCD1BF]";
+    return {
+      border: UI.infoBorder,
+      background: UI.infoBg,
+      color: UI.infoText,
+    };
   }
 
-  if (v === "bajo") {
-    return "border-white/10 bg-white/5 text-[#DCD1BF]";
-  }
-
-  return "border-white/10 bg-white/5 text-[#DCD1BF]";
+  return {
+    border: UI.warningBorder,
+    background: UI.warningBg,
+    color: UI.warningText,
+  };
 }
 
-function getYesNoTone(value: string | null | undefined) {
+function getYesNoMeta(value: string | null | undefined) {
   const normalized = normalizeYesNo(value);
 
   if (normalized === "Sí") {
-    return "border-[rgba(184,161,127,0.38)] bg-[rgba(184,161,127,0.14)] text-[#F0EBE5]";
+    return {
+      border: UI.infoBorder,
+      background: UI.infoBg,
+      color: UI.infoText,
+    };
   }
 
   if (normalized === "No") {
-    return "border-white/10 bg-white/5 text-[#DCD1BF]";
+    return {
+      border: UI.dangerBorder,
+      background: UI.dangerBg,
+      color: UI.dangerText,
+    };
   }
 
-  return "border-white/10 bg-white/5 text-[#DCD1BF]";
+  return {
+    border: UI.warningBorder,
+    background: UI.warningBg,
+    color: UI.warningText,
+  };
 }
 
-function getDirectionBadgeTone(direction: string | null | undefined) {
+function getDirectionBadgeMeta(direction: string | null | undefined) {
   if (direction === "outbound") {
-    return "border-[rgba(184,161,127,0.28)] bg-[#B8A17F] text-[#1A191B]";
+    return {
+      border: UI.warningBorder,
+      background: UI.warningBg,
+      color: UI.warningText,
+    };
   }
 
   if (direction === "inbound") {
-    return "border-[rgba(75,95,130,0.32)] bg-[rgba(75,95,130,0.18)] text-[#DCD1BF]";
+    return {
+      border: UI.infoBorder,
+      background: UI.infoBg,
+      color: UI.infoText,
+    };
   }
 
-  return "border-white/10 bg-white/5 text-[#DCD1BF]";
+  return {
+    border: UI.borderStrong,
+    background: "rgba(255,255,255,0.04)",
+    color: UI.fgSoft,
+  };
 }
 
 function getLeadSummary(
@@ -246,12 +292,24 @@ function InfoCard({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border bg-[rgba(255,255,255,0.02)] p-4" style={{ borderColor: COLORS.border }}>
-      <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">
+    <div
+      className="rounded-2xl border p-4"
+      style={{
+        borderColor: UI.border,
+        backgroundColor: "rgba(255,255,255,0.02)",
+        boxShadow: "var(--shadow-soft)",
+      }}
+    >
+      <div
+        className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]"
+        style={{ color: UI.muted }}
+      >
         {icon}
         <span>{label}</span>
       </div>
-      <p className="mt-3 text-sm leading-6 text-[#F0EBE5]">{value}</p>
+      <p className="mt-3 text-sm leading-6" style={{ color: UI.fg }}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -261,12 +319,48 @@ function Badge({
   tone,
 }: {
   children: React.ReactNode;
-  tone: string;
+  tone: { border: string; background: string; color: string };
 }) {
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${tone}`}>
+    <span
+      className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
+      style={{
+        borderColor: tone.border,
+        backgroundColor: tone.background,
+        color: tone.color,
+      }}
+    >
       {children}
     </span>
+  );
+}
+
+function ThemeToggle({
+  theme,
+  onToggle,
+}: {
+  theme: ThemeMode;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
+      style={{
+        borderColor: UI.border,
+        backgroundColor: "rgba(255,255,255,0.03)",
+        color: UI.fg,
+      }}
+      aria-label="Cambiar tema"
+      type="button"
+    >
+      {theme === "dark" ? (
+        <SunMedium className="h-4 w-4" style={{ color: UI.gold }} />
+      ) : (
+        <Moon className="h-4 w-4" style={{ color: UI.blue }} />
+      )}
+      {theme === "dark" ? "Light" : "Dark"}
+    </button>
   );
 }
 
@@ -280,6 +374,7 @@ export default function HomePage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [theme, setTheme] = useState<ThemeMode>("dark");
 
   const loadConversations = useCallback(async (showLoader = true) => {
     if (showLoader) {
@@ -352,6 +447,20 @@ export default function HomePage() {
     router.refresh();
   }
 
+  function handleToggleTheme() {
+    setTheme((current) => {
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("nancy-theme", next);
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    setTheme(currentTheme === "light" ? "light" : "dark");
+  }, []);
+
   useEffect(() => {
     void Promise.resolve().then(() => loadConversations());
   }, [loadConversations]);
@@ -406,25 +515,28 @@ export default function HomePage() {
   const shouldShowMobileChat = mobileView === "chat";
 
   return (
-    <main className="min-h-screen text-white lg:h-screen lg:overflow-hidden" style={{ backgroundColor: COLORS.pageBg }}>
+    <main className="min-h-screen lg:h-screen lg:overflow-hidden" style={{ color: UI.fg }}>
       <div className="mx-auto flex min-h-screen max-w-[1700px] flex-col px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:px-6 lg:py-8">
         <div className="mb-6 lg:mb-8">
-          <div className="overflow-hidden rounded-[28px] border bg-[linear-gradient(135deg,rgba(184,161,127,0.12)_0%,rgba(42,40,41,0.32)_38%,rgba(42,64,89,0.18)_100%)] px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6" style={{ borderColor: COLORS.borderSoft }}>
+          <div
+            className="overflow-hidden rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6"
+            style={{
+              borderColor: UI.borderSoft,
+              background:
+                "linear-gradient(135deg, rgba(184,161,127,0.10) 0%, rgba(42,64,89,0.08) 42%, rgba(255,255,255,0.02) 100%)",
+              boxShadow: "var(--shadow-panel)",
+            }}
+          >
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="mb-4 flex items-center gap-3">
-                  <Image
-                    src="/brand/mrcreditmind-logo.svg"
-                    alt="Mr. CREDITMIND"
-                    width={220}
-                    height={40}
-                    className="h-auto w-[150px] opacity-95 sm:w-[180px] lg:w-[210px]"
-                    priority
-                  />
-                </div>
-
                 <div className="flex items-center gap-3">
-                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border bg-[#171618] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]" style={{ borderColor: COLORS.borderSoft }}>
+                  <div
+                    className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border shadow-[0_0_0_1px_rgba(255,255,255,0.03)]"
+                    style={{
+                      borderColor: UI.borderSoft,
+                      backgroundColor: UI.panelSoft,
+                    }}
+                  >
                     <Image
                       src="/brand/nancy-mark.png"
                       alt="Nancy Monitor"
@@ -437,36 +549,52 @@ export default function HomePage() {
 
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-2xl font-semibold tracking-tight text-[#F0EBE5] sm:text-3xl lg:text-[2rem]">
+                      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-[2rem]">
                         Nancy Monitor
                       </h1>
-                      <Badge tone="border-[rgba(184,161,127,0.32)] bg-[rgba(184,161,127,0.12)] text-[#DCD1BF]">
+                      <Badge
+                        tone={{
+                          border: UI.warningBorder,
+                          background: UI.warningBg,
+                          color: UI.warningText,
+                        }}
+                      >
                         Interno
                       </Badge>
                     </div>
-                    <p className="mt-1 text-sm text-[#DCD1BF]/72 sm:text-[15px]">
-                      Monitoreo de conversaciones, actividad y señales comerciales en tiempo real.
+                    <p className="mt-1 text-sm sm:text-[15px]" style={{ color: UI.fgSoft }}>
+                      Centro interno de monitoreo comercial.
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
+                <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
+
                 <button
                   onClick={handleRefresh}
-                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium text-[#F0EBE5] transition hover:bg-white/5"
-                  style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.03)" }}
+                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
+                  style={{
+                    borderColor: UI.border,
+                    backgroundColor: "rgba(255,255,255,0.03)",
+                    color: UI.fg,
+                  }}
                 >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} style={{ color: COLORS.gold }} />
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} style={{ color: UI.gold }} />
                   Actualizar
                 </button>
 
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium text-[#F0EBE5] transition hover:bg-white/5"
-                  style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.03)" }}
+                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
+                  style={{
+                    borderColor: UI.border,
+                    backgroundColor: "rgba(255,255,255,0.03)",
+                    color: UI.fg,
+                  }}
                 >
-                  <LogOut className="h-4 w-4" style={{ color: COLORS.gold }} />
+                  <LogOut className="h-4 w-4" style={{ color: UI.gold }} />
                   Cerrar sesión
                 </button>
               </div>
@@ -475,30 +603,48 @@ export default function HomePage() {
         </div>
 
         <div className="hidden min-h-0 flex-1 gap-6 lg:grid lg:grid-cols-[360px_minmax(0,1fr)_320px]">
-          <aside className="flex min-h-0 flex-col rounded-3xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.03)" }}>
+          <aside
+            className="flex min-h-0 flex-col rounded-3xl border p-4"
+            style={{
+              borderColor: UI.border,
+              backgroundColor: "rgba(255,255,255,0.03)",
+            }}
+          >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-medium text-[#F0EBE5]">Conversaciones</h2>
-              <span className="text-sm text-[#B8B0A5]">{filteredConversations.length}</span>
+              <h2 className="text-lg font-medium">Conversaciones</h2>
+              <span className="text-sm" style={{ color: UI.muted }}>
+                {filteredConversations.length}
+              </span>
             </div>
 
             <div className="relative mb-4">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B8A17F]" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: UI.gold }} />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nombre, teléfono o texto"
-                className="w-full rounded-2xl border px-10 py-3 text-sm text-[#F0EBE5] outline-none placeholder:text-[#B8B0A5]"
-                style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}
+                className="w-full rounded-2xl border px-10 py-3 text-sm outline-none"
+                style={{
+                  borderColor: UI.border,
+                  backgroundColor: UI.card,
+                  color: UI.fg,
+                }}
               />
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
               {loadingConversations ? (
-                <div className="rounded-2xl border p-4 text-sm text-[#B8B0A5]" style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}>
+                <div
+                  className="rounded-2xl border p-4 text-sm"
+                  style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.muted }}
+                >
                   Cargando conversaciones...
                 </div>
               ) : filteredConversations.length === 0 ? (
-                <div className="rounded-2xl border p-4 text-sm text-[#B8B0A5]" style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}>
+                <div
+                  className="rounded-2xl border p-4 text-sm"
+                  style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.muted }}
+                >
                   No hay conversaciones disponibles.
                 </div>
               ) : (
@@ -511,36 +657,36 @@ export default function HomePage() {
                       onClick={() => setSelectedConversationId(item.conversation_id)}
                       className="w-full rounded-2xl border p-4 text-left transition"
                       style={{
-                        borderColor: isActive ? "rgba(184,161,127,0.35)" : COLORS.border,
-                        backgroundColor: isActive ? "rgba(184,161,127,0.08)" : COLORS.cardBg,
-                        boxShadow: isActive ? "0 0 0 1px rgba(184,161,127,0.08)" : "none",
+                        borderColor: isActive ? UI.warningBorder : UI.border,
+                        backgroundColor: isActive ? UI.warningBg : UI.card,
+                        boxShadow: isActive ? "0 0 0 1px rgba(184,161,127,0.06)" : "none",
                       }}
                     >
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-[#F0EBE5]">
+                          <p className="truncate text-sm font-medium" style={{ color: UI.fg }}>
                             {getDisplayName(item.contact_name, item.contact_id)}
                           </p>
-                          <p className="truncate text-xs text-[#B8B0A5]">
+                          <p className="truncate text-xs" style={{ color: UI.muted }}>
                             {getDisplayContact(item.contact_id)}
                           </p>
                         </div>
 
                         <div className="shrink-0 text-right">
-                          <p className="text-[11px] uppercase tracking-wide text-[#B8B0A5]">
+                          <p className="text-[11px] uppercase tracking-wide" style={{ color: UI.muted }}>
                             {getChannelLabel(item.channel)}
                           </p>
-                          <p className="mt-1 text-[11px] text-[#B8B0A5]">
+                          <p className="mt-1 text-[11px]" style={{ color: UI.muted }}>
                             {formatSidebarDate(item.last_message_at)}
                           </p>
                         </div>
                       </div>
 
-                      <p className="mb-3 text-sm leading-5 text-[#DCD1BF]">
+                      <p className="mb-3 text-sm leading-5" style={{ color: UI.fgSoft }}>
                         {truncateText(item.last_message_text, 84)}
                       </p>
 
-                      <div className="flex items-center justify-between text-[11px] text-[#B8B0A5]">
+                      <div className="flex items-center justify-between text-[11px]" style={{ color: UI.muted }}>
                         <span>{formatDirection(item.last_direction)}</span>
                         <span>{item.total_messages || 0} mensajes</span>
                       </div>
@@ -551,41 +697,51 @@ export default function HomePage() {
             </div>
           </aside>
 
-          <section className="flex min-h-0 flex-col rounded-3xl border" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.03)" }}>
-            <div className="border-b px-6 py-5" style={{ borderColor: COLORS.border }}>
+          <section
+            className="flex min-h-0 flex-col rounded-3xl border"
+            style={{
+              borderColor: UI.border,
+              backgroundColor: "rgba(255,255,255,0.03)",
+            }}
+          >
+            <div className="border-b px-6 py-5" style={{ borderColor: UI.border }}>
               {selectedConversation ? (
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-medium text-[#F0EBE5]">
-                      {getDisplayName(selectedConversation.contact_name, selectedConversation.contact_id)}
-                    </h2>
-                    <p className="mt-1 text-sm text-[#B8B0A5]">
+                    <h2 className="text-xl font-medium">{getDisplayName(selectedConversation.contact_name, selectedConversation.contact_id)}</h2>
+                    <p className="mt-1 text-sm" style={{ color: UI.muted }}>
                       {getDisplayContact(selectedConversation.contact_id)}
                     </p>
                   </div>
 
-                  <div className="text-right text-sm text-[#B8B0A5]">
+                  <div className="text-right text-sm" style={{ color: UI.muted }}>
                     <p>{getChannelLabel(selectedConversation.channel)}</p>
                     <p>{selectedConversation.total_messages || 0} mensajes</p>
                   </div>
                 </div>
               ) : (
-                <div className="text-sm text-[#B8B0A5]">Selecciona una conversación</div>
+                <div className="text-sm" style={{ color: UI.muted }}>
+                  Selecciona una conversación
+                </div>
               )}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
               {loadingMessages ? (
-                <div className="text-sm text-[#B8B0A5]">Cargando mensajes...</div>
+                <div className="text-sm" style={{ color: UI.muted }}>
+                  Cargando mensajes...
+                </div>
               ) : !selectedConversationId ? (
-                <div className="flex h-full items-center justify-center text-[#B8B0A5]">
+                <div className="flex h-full items-center justify-center" style={{ color: UI.muted }}>
                   <div className="text-center">
-                    <MessageSquare className="mx-auto mb-3 h-10 w-10" style={{ color: COLORS.blueSoft }} />
+                    <MessageSquare className="mx-auto mb-3 h-10 w-10" style={{ color: UI.blueSoft }} />
                     <p>Selecciona una conversación para ver el chat</p>
                   </div>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-sm text-[#B8B0A5]">No hay mensajes en esta conversación.</div>
+                <div className="text-sm" style={{ color: UI.muted }}>
+                  No hay mensajes en esta conversación.
+                </div>
               ) : (
                 <div className="space-y-5">
                   {messages.map((msg) => {
@@ -597,12 +753,15 @@ export default function HomePage() {
                           <div
                             className="rounded-[28px] border px-5 py-4 shadow-sm"
                             style={{
-                              borderColor: isOutbound ? "rgba(184,161,127,0.25)" : COLORS.border,
-                              backgroundColor: isOutbound ? COLORS.goldSoft : COLORS.cardBg,
-                              color: isOutbound ? COLORS.dark : COLORS.cream,
+                              borderColor: isOutbound ? UI.warningBorder : UI.border,
+                              backgroundColor: isOutbound ? UI.warningBg : UI.card,
+                              color: isOutbound ? UI.warningText : UI.fg,
                             }}
                           >
-                            <div className="mb-3 flex items-center justify-between gap-4 text-[11px] uppercase tracking-wide" style={{ color: isOutbound ? COLORS.dark : COLORS.muted }}>
+                            <div
+                              className="mb-3 flex items-center justify-between gap-4 text-[11px] uppercase tracking-wide"
+                              style={{ color: isOutbound ? UI.warningText : UI.muted }}
+                            >
                               <span>{getMessageRoleLabel(isOutbound, msg.contact_name)}</span>
                               <span>{getChannelLabel(msg.channel)}</span>
                             </div>
@@ -612,13 +771,13 @@ export default function HomePage() {
                             </p>
 
                             <div className="mt-4">
-                              <Badge tone={getDirectionBadgeTone(msg.direction)}>
+                              <Badge tone={getDirectionBadgeMeta(msg.direction)}>
                                 {msg.direction === "outbound" ? "Enviado" : "Recibido"}
                               </Badge>
                             </div>
                           </div>
 
-                          <div className={`mt-2 px-2 text-[11px] text-[#B8B0A5] ${isOutbound ? "text-right" : "text-left"}`}>
+                          <div className={`mt-2 px-2 text-[11px] ${isOutbound ? "text-right" : "text-left"}`} style={{ color: UI.muted }}>
                             {formatMessageDate(msg.message_timestamp)}
                           </div>
                         </div>
@@ -630,15 +789,26 @@ export default function HomePage() {
             </div>
           </section>
 
-          <aside className="flex min-h-0 flex-col rounded-3xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.03)" }}>
+          <aside
+            className="flex min-h-0 flex-col rounded-3xl border p-4"
+            style={{
+              borderColor: UI.border,
+              backgroundColor: "rgba(255,255,255,0.03)",
+            }}
+          >
             <div className="mb-4">
-              <h2 className="text-lg font-medium text-[#F0EBE5]">Ficha del lead</h2>
-              <p className="mt-1 text-sm text-[#B8B0A5]">Datos rápidos para monitoreo comercial</p>
+              <h2 className="text-lg font-medium">Ficha del lead</h2>
+              <p className="mt-1 text-sm" style={{ color: UI.muted }}>
+                Señales rápidas para seguimiento comercial
+              </p>
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
               {!leadSummary ? (
-                <div className="rounded-2xl border p-4 text-sm text-[#B8B0A5]" style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}>
+                <div
+                  className="rounded-2xl border p-4 text-sm"
+                  style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.muted }}
+                >
                   Selecciona una conversación para ver los datos.
                 </div>
               ) : (
@@ -648,37 +818,63 @@ export default function HomePage() {
                   <InfoCard label="Canal" value={leadSummary.channel} icon={<Layers3 className="h-3.5 w-3.5" />} />
                   <InfoCard label="Total de mensajes" value={leadSummary.totalMessages} />
 
-                  <div className="rounded-2xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">Servicio recomendado</p>
+                  <div
+                    className="rounded-2xl border p-4"
+                    style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.02)" }}
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: UI.muted }}>
+                      Servicio recomendado
+                    </p>
                     <div className="mt-3">
-                      <Badge tone="border-[rgba(184,161,127,0.38)] bg-[rgba(184,161,127,0.14)] text-[#F0EBE5]">
+                      <Badge
+                        tone={{
+                          border: UI.warningBorder,
+                          background: UI.warningBg,
+                          color: UI.warningText,
+                        }}
+                      >
                         {formatLabel(leadSummary.recommendedService)}
                       </Badge>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">Intención de compra</p>
+                  <div
+                    className="rounded-2xl border p-4"
+                    style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.02)" }}
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: UI.muted }}>
+                      Intención de compra
+                    </p>
                     <div className="mt-3">
-                      <Badge tone={getBuyingIntentTone(leadSummary.buyingIntent)}>
+                      <Badge tone={getBuyingIntentMeta(leadSummary.buyingIntent)}>
                         {formatLabel(leadSummary.buyingIntent)}
                       </Badge>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">Quiere humano</p>
+                  <div
+                    className="rounded-2xl border p-4"
+                    style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.02)" }}
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: UI.muted }}>
+                      Quiere humano
+                    </p>
                     <div className="mt-3">
-                      <Badge tone={getYesNoTone(leadSummary.wantsHuman)}>
+                      <Badge tone={getYesNoMeta(leadSummary.wantsHuman)}>
                         {normalizeYesNo(leadSummary.wantsHuman)}
                       </Badge>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">Quiere callback</p>
+                  <div
+                    className="rounded-2xl border p-4"
+                    style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.02)" }}
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: UI.muted }}>
+                      Quiere callback
+                    </p>
                     <div className="mt-3">
-                      <Badge tone={getYesNoTone(leadSummary.wantsCallback)}>
+                      <Badge tone={getYesNoMeta(leadSummary.wantsCallback)}>
                         {normalizeYesNo(leadSummary.wantsCallback)}
                       </Badge>
                     </div>
@@ -693,30 +889,48 @@ export default function HomePage() {
 
         <div className="flex flex-1 flex-col gap-4 lg:hidden">
           {shouldShowMobileList ? (
-            <section className="flex min-h-0 flex-1 flex-col rounded-3xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.03)" }}>
+            <section
+              className="flex min-h-0 flex-1 flex-col rounded-3xl border p-4"
+              style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.03)" }}
+            >
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-medium text-[#F0EBE5]">Conversaciones</h2>
-                <span className="text-sm text-[#B8B0A5]">{filteredConversations.length}</span>
+                <h2 className="text-lg font-medium">Conversaciones</h2>
+                <span className="text-sm" style={{ color: UI.muted }}>
+                  {filteredConversations.length}
+                </span>
               </div>
 
-              <div className="relative mb-4">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B8A17F]" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre, teléfono o texto"
-                  className="w-full rounded-2xl border px-10 py-3 text-sm text-[#F0EBE5] outline-none placeholder:text-[#B8B0A5]"
-                  style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}
-                />
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: UI.gold }} />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar por nombre, teléfono o texto"
+                    className="w-full rounded-2xl border px-10 py-3 text-sm outline-none"
+                    style={{
+                      borderColor: UI.border,
+                      backgroundColor: UI.card,
+                      color: UI.fg,
+                    }}
+                  />
+                </div>
+                <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
               </div>
 
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {loadingConversations ? (
-                  <div className="rounded-2xl border p-4 text-sm text-[#B8B0A5]" style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}>
+                  <div
+                    className="rounded-2xl border p-4 text-sm"
+                    style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.muted }}
+                  >
                     Cargando conversaciones...
                   </div>
                 ) : filteredConversations.length === 0 ? (
-                  <div className="rounded-2xl border p-4 text-sm text-[#B8B0A5]" style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}>
+                  <div
+                    className="rounded-2xl border p-4 text-sm"
+                    style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.muted }}
+                  >
                     No hay conversaciones disponibles.
                   </div>
                 ) : (
@@ -732,35 +946,35 @@ export default function HomePage() {
                         }}
                         className="w-full rounded-2xl border p-4 text-left transition"
                         style={{
-                          borderColor: isActive ? "rgba(184,161,127,0.35)" : COLORS.border,
-                          backgroundColor: isActive ? "rgba(184,161,127,0.08)" : COLORS.cardBg,
+                          borderColor: isActive ? UI.warningBorder : UI.border,
+                          backgroundColor: isActive ? UI.warningBg : UI.card,
                         }}
                       >
                         <div className="mb-3 flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-[#F0EBE5]">
+                            <p className="truncate text-sm font-medium" style={{ color: UI.fg }}>
                               {getDisplayName(item.contact_name, item.contact_id)}
                             </p>
-                            <p className="truncate text-xs text-[#B8B0A5]">
+                            <p className="truncate text-xs" style={{ color: UI.muted }}>
                               {getDisplayContact(item.contact_id)}
                             </p>
                           </div>
 
                           <div className="shrink-0 text-right">
-                            <p className="text-[11px] uppercase tracking-wide text-[#B8B0A5]">
+                            <p className="text-[11px] uppercase tracking-wide" style={{ color: UI.muted }}>
                               {getChannelLabel(item.channel)}
                             </p>
-                            <p className="mt-1 text-[11px] text-[#B8B0A5]">
+                            <p className="mt-1 text-[11px]" style={{ color: UI.muted }}>
                               {formatSidebarDate(item.last_message_at)}
                             </p>
                           </div>
                         </div>
 
-                        <p className="mb-3 text-sm leading-5 text-[#DCD1BF]">
+                        <p className="mb-3 text-sm leading-5" style={{ color: UI.fgSoft }}>
                           {truncateText(item.last_message_text, 84)}
                         </p>
 
-                        <div className="flex items-center justify-between text-[11px] text-[#B8B0A5]">
+                        <div className="flex items-center justify-between text-[11px]" style={{ color: UI.muted }}>
                           <span>{formatDirection(item.last_direction)}</span>
                           <span>{item.total_messages || 0} mensajes</span>
                         </div>
@@ -774,50 +988,59 @@ export default function HomePage() {
 
           {shouldShowMobileChat ? (
             <>
-              <section className="flex min-h-0 flex-1 flex-col rounded-3xl border" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.03)" }}>
-                <div className="border-b px-4 py-4 sm:px-5" style={{ borderColor: COLORS.border }}>
+              <section
+                className="flex min-h-0 flex-1 flex-col rounded-3xl border"
+                style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.03)" }}
+              >
+                <div className="border-b px-4 py-4 sm:px-5" style={{ borderColor: UI.border }}>
                   <button
                     onClick={() => setMobileView("list")}
-                    className="mb-4 inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm text-[#F0EBE5] transition hover:bg-white/5"
-                    style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}
+                    className="mb-4 inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition hover:bg-white/5"
+                    style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.fg }}
                   >
-                    <ArrowLeft className="h-4 w-4" style={{ color: COLORS.gold }} />
+                    <ArrowLeft className="h-4 w-4" style={{ color: UI.gold }} />
                     Volver
                   </button>
 
                   {selectedConversation ? (
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <h2 className="text-lg font-medium text-[#F0EBE5] sm:text-xl">
+                        <h2 className="text-lg font-medium sm:text-xl">
                           {getDisplayName(selectedConversation.contact_name, selectedConversation.contact_id)}
                         </h2>
-                        <p className="mt-1 text-sm text-[#B8B0A5]">
+                        <p className="mt-1 text-sm" style={{ color: UI.muted }}>
                           {getDisplayContact(selectedConversation.contact_id)}
                         </p>
                       </div>
 
-                      <div className="text-left text-sm text-[#B8B0A5] sm:text-right">
+                      <div className="text-left text-sm sm:text-right" style={{ color: UI.muted }}>
                         <p>{getChannelLabel(selectedConversation.channel)}</p>
                         <p>{selectedConversation.total_messages || 0} mensajes</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="text-sm text-[#B8B0A5]">Selecciona una conversación</div>
+                    <div className="text-sm" style={{ color: UI.muted }}>
+                      Selecciona una conversación
+                    </div>
                   )}
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
                   {loadingMessages ? (
-                    <div className="text-sm text-[#B8B0A5]">Cargando mensajes...</div>
+                    <div className="text-sm" style={{ color: UI.muted }}>
+                      Cargando mensajes...
+                    </div>
                   ) : !selectedConversationId ? (
-                    <div className="flex h-full items-center justify-center text-[#B8B0A5]">
+                    <div className="flex h-full items-center justify-center" style={{ color: UI.muted }}>
                       <div className="text-center">
-                        <MessageSquare className="mx-auto mb-3 h-10 w-10" style={{ color: COLORS.blueSoft }} />
+                        <MessageSquare className="mx-auto mb-3 h-10 w-10" style={{ color: UI.blueSoft }} />
                         <p>Selecciona una conversación para ver el chat</p>
                       </div>
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="text-sm text-[#B8B0A5]">No hay mensajes en esta conversación.</div>
+                    <div className="text-sm" style={{ color: UI.muted }}>
+                      No hay mensajes en esta conversación.
+                    </div>
                   ) : (
                     <div className="space-y-4">
                       {messages.map((msg) => {
@@ -829,12 +1052,15 @@ export default function HomePage() {
                               <div
                                 className="rounded-[24px] border px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5"
                                 style={{
-                                  borderColor: isOutbound ? "rgba(184,161,127,0.25)" : COLORS.border,
-                                  backgroundColor: isOutbound ? COLORS.goldSoft : COLORS.cardBg,
-                                  color: isOutbound ? COLORS.dark : COLORS.cream,
+                                  borderColor: isOutbound ? UI.warningBorder : UI.border,
+                                  backgroundColor: isOutbound ? UI.warningBg : UI.card,
+                                  color: isOutbound ? UI.warningText : UI.fg,
                                 }}
                               >
-                                <div className="mb-3 flex items-center justify-between gap-4 text-[11px] uppercase tracking-wide" style={{ color: isOutbound ? COLORS.dark : COLORS.muted }}>
+                                <div
+                                  className="mb-3 flex items-center justify-between gap-4 text-[11px] uppercase tracking-wide"
+                                  style={{ color: isOutbound ? UI.warningText : UI.muted }}
+                                >
                                   <span>{getMessageRoleLabel(isOutbound, msg.contact_name)}</span>
                                   <span>{getChannelLabel(msg.channel)}</span>
                                 </div>
@@ -844,13 +1070,13 @@ export default function HomePage() {
                                 </p>
 
                                 <div className="mt-4">
-                                  <Badge tone={getDirectionBadgeTone(msg.direction)}>
+                                  <Badge tone={getDirectionBadgeMeta(msg.direction)}>
                                     {msg.direction === "outbound" ? "Enviado" : "Recibido"}
                                   </Badge>
                                 </div>
                               </div>
 
-                              <div className={`mt-2 px-2 text-[11px] text-[#B8B0A5] ${isOutbound ? "text-right" : "text-left"}`}>
+                              <div className={`mt-2 px-2 text-[11px] ${isOutbound ? "text-right" : "text-left"}`} style={{ color: UI.muted }}>
                                 {formatMessageDate(msg.message_timestamp)}
                               </div>
                             </div>
@@ -862,15 +1088,23 @@ export default function HomePage() {
                 </div>
               </section>
 
-              <aside className="rounded-3xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.03)" }}>
+              <aside
+                className="rounded-3xl border p-4"
+                style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.03)" }}
+              >
                 <div className="mb-4">
-                  <h2 className="text-lg font-medium text-[#F0EBE5]">Ficha del lead</h2>
-                  <p className="mt-1 text-sm text-[#B8B0A5]">Datos rápidos para monitoreo comercial</p>
+                  <h2 className="text-lg font-medium">Ficha del lead</h2>
+                  <p className="mt-1 text-sm" style={{ color: UI.muted }}>
+                    Señales rápidas para seguimiento comercial
+                  </p>
                 </div>
 
                 <div className="space-y-3">
                   {!leadSummary ? (
-                    <div className="rounded-2xl border p-4 text-sm text-[#B8B0A5]" style={{ borderColor: COLORS.border, backgroundColor: COLORS.cardBg }}>
+                    <div
+                      className="rounded-2xl border p-4 text-sm"
+                      style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.muted }}
+                    >
                       Selecciona una conversación para ver los datos.
                     </div>
                   ) : (
@@ -880,37 +1114,63 @@ export default function HomePage() {
                       <InfoCard label="Canal" value={leadSummary.channel} icon={<Layers3 className="h-3.5 w-3.5" />} />
                       <InfoCard label="Total de mensajes" value={leadSummary.totalMessages} />
 
-                      <div className="rounded-2xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">Servicio recomendado</p>
+                      <div
+                        className="rounded-2xl border p-4"
+                        style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.02)" }}
+                      >
+                        <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: UI.muted }}>
+                          Servicio recomendado
+                        </p>
                         <div className="mt-3">
-                          <Badge tone="border-[rgba(184,161,127,0.38)] bg-[rgba(184,161,127,0.14)] text-[#F0EBE5]">
+                          <Badge
+                            tone={{
+                              border: UI.warningBorder,
+                              background: UI.warningBg,
+                              color: UI.warningText,
+                            }}
+                          >
                             {formatLabel(leadSummary.recommendedService)}
                           </Badge>
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">Intención de compra</p>
+                      <div
+                        className="rounded-2xl border p-4"
+                        style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.02)" }}
+                      >
+                        <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: UI.muted }}>
+                          Intención de compra
+                        </p>
                         <div className="mt-3">
-                          <Badge tone={getBuyingIntentTone(leadSummary.buyingIntent)}>
+                          <Badge tone={getBuyingIntentMeta(leadSummary.buyingIntent)}>
                             {formatLabel(leadSummary.buyingIntent)}
                           </Badge>
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">Quiere humano</p>
+                      <div
+                        className="rounded-2xl border p-4"
+                        style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.02)" }}
+                      >
+                        <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: UI.muted }}>
+                          Quiere humano
+                        </p>
                         <div className="mt-3">
-                          <Badge tone={getYesNoTone(leadSummary.wantsHuman)}>
+                          <Badge tone={getYesNoMeta(leadSummary.wantsHuman)}>
                             {normalizeYesNo(leadSummary.wantsHuman)}
                           </Badge>
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border p-4" style={{ borderColor: COLORS.border, backgroundColor: "rgba(255,255,255,0.02)" }}>
-                        <p className="text-[11px] uppercase tracking-[0.18em] text-[#B8B0A5]">Quiere callback</p>
+                      <div
+                        className="rounded-2xl border p-4"
+                        style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.02)" }}
+                      >
+                        <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: UI.muted }}>
+                          Quiere callback
+                        </p>
                         <div className="mt-3">
-                          <Badge tone={getYesNoTone(leadSummary.wantsCallback)}>
+                          <Badge tone={getYesNoMeta(leadSummary.wantsCallback)}>
                             {normalizeYesNo(leadSummary.wantsCallback)}
                           </Badge>
                         </div>

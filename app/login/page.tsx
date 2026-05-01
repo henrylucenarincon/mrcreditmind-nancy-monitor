@@ -1,9 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Moon, SunMedium } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
+
+type ThemeMode = "dark" | "light";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +16,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>("light");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,68 +39,101 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  useEffect(() => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    setTheme(currentTheme === "light" ? "light" : "dark");
+  }, []);
+
+  function handleToggleTheme() {
+    setTheme((current) => {
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("nancy-theme", next);
+      return next;
+    });
+  }
+
   return (
-    <main className="min-h-screen overflow-hidden bg-[#0E0E10] text-[#F0EBE5]">
+    <main className="min-h-screen overflow-hidden" style={{ color: "var(--foreground)" }}>
       <div className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-6 sm:py-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(184,161,127,0.14)_0%,transparent_28%),radial-gradient(circle_at_85%_20%,rgba(75,95,130,0.14)_0%,transparent_24%),linear-gradient(135deg,#0E0E10_0%,#161416_48%,#0E0E10_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#B8A17F]/40 to-transparent" />
-        <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-[#B8A17F]/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(184,161,127,0.12)_0%,transparent_26%),radial-gradient(circle_at_82%_18%,rgba(75,95,130,0.10)_0%,transparent_18%),linear-gradient(135deg,var(--background)_0%,var(--panel)_46%,var(--background)_100%)]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-gold)]/35 to-transparent" />
+        <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-[var(--brand-gold)]/10 blur-3xl" />
 
-        <section className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/8 bg-[#141315]/88 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-          <div className="border-b border-white/6 px-6 py-5 sm:px-8">
-            <div className="mb-5 flex items-center gap-4">
-              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[#B8A17F]/35 bg-[#1B1A1C] shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
-                <Image
-                  src="/brand/nancy-mark.png"
-                  alt="Nancy Monitor"
-                  fill
-                  className="object-cover"
-                  sizes="56px"
-                  priority
-                />
-              </div>
+        <section
+          className="relative w-full max-w-md overflow-hidden rounded-[28px] border backdrop-blur-xl"
+          style={{
+            borderColor: "var(--border-soft)",
+            backgroundColor: "color-mix(in srgb, var(--panel) 88%, transparent)",
+            boxShadow: "var(--shadow-panel)",
+          }}
+        >
+          <div className="border-b px-6 py-6 sm:px-8" style={{ borderColor: "var(--border)" }}>
+            <div className="flex items-start justify-between gap-4">
+              <Image
+                src={theme === "light" ? "/brand/mrcreditmind-logo-dark.svg" : "/brand/mrcreditmind-logo.svg"}
+                alt="Mr. CREDITMIND"
+                width={220}
+                height={40}
+                className="h-auto w-[170px] opacity-95 sm:w-[200px]"
+                priority
+              />
 
-              <div className="min-w-0">
-                <p className="text-[11px] font-medium uppercase tracking-[0.34em] text-[#B8A17F]">
-                  Nancy Monitor
-                </p>
-                <p className="mt-1 text-sm text-[#DCD1BF]/72">
-                  Acceso privado del equipo interno
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={handleToggleTheme}
+                aria-label="Cambiar tema"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition hover:bg-white/5"
+                style={{
+                  borderColor: "var(--border)",
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  color: "var(--foreground)",
+                }}
+              >
+                {theme === "dark" ? (
+                  <SunMedium className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
+                ) : (
+                  <Moon className="h-4 w-4" style={{ color: "var(--brand-blue)" }} />
+                )}
+              </button>
             </div>
-
-            <Image
-              src="/brand/mrcreditmind-logo.svg"
-              alt="Mr. CREDITMIND"
-              width={220}
-              height={40}
-              className="h-auto w-[180px] opacity-95 sm:w-[210px]"
-              priority
-            />
           </div>
 
           <div className="px-6 py-7 sm:px-8 sm:py-8">
             <div className="mb-7">
-              <h1 className="text-3xl font-semibold tracking-tight text-[#F0EBE5] sm:text-[2rem]">
+              <p
+                className="mb-3 text-[11px] font-medium uppercase tracking-[0.34em]"
+                style={{ color: "var(--brand-gold)" }}
+              >
+                Nancy Monitor
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-[2rem]">
                 Iniciar sesión
               </h1>
-              <p className="mt-3 text-sm leading-6 text-[#DCD1BF]/72">
-                Accede al panel de monitoreo de conversaciones con tu cuenta autorizada.
+              <p className="mt-3 text-sm leading-6" style={{ color: "var(--foreground-soft)" }}>
+                Accede al panel interno con tu cuenta autorizada.
               </p>
             </div>
 
             <form className="space-y-5" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="mb-2.5 block text-sm font-medium text-[#E6DFD1]">
+                <span className="mb-2.5 block text-sm font-medium" style={{ color: "var(--foreground)" }}>
                   Email
                 </span>
-                <span className="flex items-center gap-3 rounded-2xl border border-white/8 bg-[#0D0D0F] px-4 py-3.5 text-[#F0EBE5] transition focus-within:border-[#B8A17F]/55 focus-within:bg-[#111114]">
-                  <span className="text-sm font-medium text-[#B8A17F]" aria-hidden="true">
+                <span
+                  className="flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition"
+                  style={{
+                    borderColor: "var(--border)",
+                    backgroundColor: "var(--card)",
+                    color: "var(--foreground)",
+                  }}
+                >
+                  <span className="text-sm font-medium" style={{ color: "var(--brand-gold)" }} aria-hidden="true">
                     @
                   </span>
                   <input
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-[#DCD1BF]/34"
+                    className="w-full bg-transparent text-sm outline-none"
+                    style={{ color: "var(--foreground)" }}
                     type="email"
                     autoComplete="email"
                     placeholder="tu@email.com"
@@ -109,15 +146,23 @@ export default function LoginPage() {
               </label>
 
               <label className="block">
-                <span className="mb-2.5 block text-sm font-medium text-[#E6DFD1]">
+                <span className="mb-2.5 block text-sm font-medium" style={{ color: "var(--foreground)" }}>
                   Contraseña
                 </span>
-                <span className="flex items-center gap-3 rounded-2xl border border-white/8 bg-[#0D0D0F] px-4 py-3.5 text-[#F0EBE5] transition focus-within:border-[#B8A17F]/55 focus-within:bg-[#111114]">
-                  <span className="text-lg leading-none text-[#B8A17F]" aria-hidden="true">
+                <span
+                  className="flex items-center gap-3 rounded-2xl border px-4 py-3.5 transition"
+                  style={{
+                    borderColor: "var(--border)",
+                    backgroundColor: "var(--card)",
+                    color: "var(--foreground)",
+                  }}
+                >
+                  <span className="text-lg leading-none" style={{ color: "var(--brand-gold)" }} aria-hidden="true">
                     *
                   </span>
                   <input
-                    className="w-full bg-transparent text-sm outline-none placeholder:text-[#DCD1BF]/34"
+                    className="w-full bg-transparent text-sm outline-none"
+                    style={{ color: "var(--foreground)" }}
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     placeholder="Tu contraseña"
@@ -127,7 +172,8 @@ export default function LoginPage() {
                     required
                   />
                   <button
-                    className="rounded-xl px-2 py-1 text-sm font-medium text-[#DCD1BF]/72 transition hover:bg-white/5 hover:text-[#F0EBE5] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl px-2 py-1 text-sm font-medium transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ color: "var(--foreground-soft)" }}
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
                     disabled={isLoading}
@@ -139,13 +185,24 @@ export default function LoginPage() {
               </label>
 
               {error ? (
-                <p className="rounded-2xl border border-[#B8A17F]/25 bg-[#B8A17F]/10 px-4 py-3 text-sm text-[#F0EBE5]">
+                <p
+                  className="rounded-2xl border px-4 py-3 text-sm"
+                  style={{
+                    borderColor: "var(--status-danger-border)",
+                    backgroundColor: "var(--status-danger-bg)",
+                    color: "var(--status-danger-text)",
+                  }}
+                >
                   {error}
                 </p>
               ) : null}
 
               <button
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#B8A17F] px-4 py-3.5 text-sm font-semibold text-[#141315] transition hover:bg-[#D2BEA0] disabled:cursor-not-allowed disabled:bg-[#5C554A] disabled:text-[#E6DFD1]/60"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                style={{
+                  backgroundColor: "var(--brand-gold)",
+                  color: "#141315",
+                }}
                 type="submit"
                 disabled={isLoading}
               >
