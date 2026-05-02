@@ -4,8 +4,11 @@ import {
   ensureCopilotConversation,
   getCurrentUserId,
 } from "@/lib/copilot/history";
-import { runCopilotOrchestrator } from "@/lib/copilot/orchestrator";
-import type { CopilotChatMessage, CopilotChatRequest } from "@/lib/copilot/types";
+import type {
+  CopilotChatMessage,
+  CopilotChatRequest,
+  CopilotResponse,
+} from "@/lib/copilot/types";
 
 function isHistory(value: unknown): value is CopilotChatMessage[] {
   return (
@@ -91,7 +94,7 @@ export async function POST(request: NextRequest) {
       console.error("No pudimos persistir mensaje de usuario Copilot:", storageError);
     }
 
-    const response = {
+    const response: CopilotResponse = {
       answer: "¡Hola! Soy Nancy Copilot. Estoy funcionando en modo de demostración. Puedo ayudarte con consultas sobre leads, documentos, onboarding y datos operativos. ¿En qué puedo asistirte hoy?",
       cards: [
         {
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest) {
           id: "demo-action",
           label: "Explorar funciones",
           description: "Descubre todas las capacidades de Nancy Copilot",
-          type: "explore" as const,
+          type: "review_data",
         },
       ],
       context: [
@@ -118,8 +121,8 @@ export async function POST(request: NextRequest) {
         {
           id: "nancy-demo",
           label: "Nancy Copilot Demo",
-          type: "demo" as const,
-          status: "active" as const,
+          type: "internal",
+          status: "used",
         },
       ],
     };
