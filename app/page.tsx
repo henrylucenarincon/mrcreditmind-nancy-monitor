@@ -374,7 +374,7 @@ export default function HomePage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
-  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [theme, setTheme] = useState<ThemeMode>("light");
 
   const loadConversations = useCallback(async (showLoader = true) => {
     if (showLoader) {
