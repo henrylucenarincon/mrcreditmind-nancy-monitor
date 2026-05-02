@@ -64,10 +64,16 @@ export async function POST(request: NextRequest) {
     }
 
     let conversationId = input.conversationId;
-    let userId = "";
+    let userId: string;
 
     try {
       userId = await getCurrentUserId();
+    } catch (authError) {
+      console.error("Usuario no autenticado en /api/copilot/chat:", authError);
+      return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+    }
+
+    try {
       const conversation = await ensureCopilotConversation(
         userId,
         conversationId,
@@ -91,7 +97,7 @@ export async function POST(request: NextRequest) {
       conversationId,
     };
 
-    if (userId && conversationId) {
+    if (conversationId) {
       try {
         await appendCopilotMessage({
           userId,

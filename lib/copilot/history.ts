@@ -1,4 +1,4 @@
-import { createClient, getSupabaseServer } from "@/lib/supabase-server";
+import { createClient } from "@/lib/supabase-server";
 import type { CopilotResponse, CopilotRole } from "./types";
 
 export type CopilotConversationRecord = {
@@ -44,7 +44,7 @@ export function buildConversationTitle(message: string) {
 }
 
 export async function listCopilotConversations(userId: string) {
-  const supabase = getSupabaseServer();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from(CONVERSATIONS_TABLE)
     .select("*")
@@ -57,7 +57,7 @@ export async function listCopilotConversations(userId: string) {
 }
 
 export async function createCopilotConversation(userId: string, title = "Nueva conversacion") {
-  const supabase = getSupabaseServer();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from(CONVERSATIONS_TABLE)
     .insert({ user_id: userId, title })
@@ -69,7 +69,7 @@ export async function createCopilotConversation(userId: string, title = "Nueva c
 }
 
 export async function getCopilotConversation(userId: string, conversationId: string) {
-  const supabase = getSupabaseServer();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from(CONVERSATIONS_TABLE)
     .select("*")
@@ -95,7 +95,7 @@ export async function ensureCopilotConversation(
 }
 
 export async function listCopilotMessages(userId: string, conversationId: string) {
-  const supabase = getSupabaseServer();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from(MESSAGES_TABLE)
     .select("*")
@@ -114,7 +114,7 @@ export async function appendCopilotMessage(input: {
   content: string;
   response?: CopilotResponse | null;
 }) {
-  const supabase = getSupabaseServer();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from(MESSAGES_TABLE)
     .insert({

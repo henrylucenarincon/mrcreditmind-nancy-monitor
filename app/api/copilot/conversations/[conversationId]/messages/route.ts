@@ -7,6 +7,10 @@ import {
 
 type Params = Promise<{ conversationId: string }>;
 
+function isAuthError(error: unknown) {
+  return error instanceof Error && error.message.includes("Usuario no autenticado");
+}
+
 export async function GET(_request: NextRequest, context: { params: Params }) {
   try {
     const { conversationId } = await context.params;
@@ -21,6 +25,11 @@ export async function GET(_request: NextRequest, context: { params: Params }) {
     return NextResponse.json({ conversation, messages });
   } catch (error) {
     console.error("Error cargando mensajes Copilot:", error);
+
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: "No pudimos cargar la conversacion." },
       { status: 500 }

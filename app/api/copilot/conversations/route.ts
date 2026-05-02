@@ -5,6 +5,10 @@ import {
   listCopilotConversations,
 } from "@/lib/copilot/history";
 
+function isAuthError(error: unknown) {
+  return error instanceof Error && error.message.includes("Usuario no autenticado");
+}
+
 export async function GET() {
   try {
     const userId = await getCurrentUserId();
@@ -12,7 +16,15 @@ export async function GET() {
     return NextResponse.json({ conversations });
   } catch (error) {
     console.error("Error listando conversaciones Copilot:", error);
-    return NextResponse.json({ conversations: [], setupRequired: true });
+
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+    }
+
+    return NextResponse.json(
+      { error: "No pudimos cargar el historial." },
+      { status: 500 }
+    );
   }
 }
 
@@ -23,6 +35,11 @@ export async function POST() {
     return NextResponse.json({ conversation });
   } catch (error) {
     console.error("Error creando conversacion Copilot:", error);
+
+    if (isAuthError(error)) {
+      return NextResponse.json({ error: "No autenticado." }, { status: 401 });
+    }
+
     return NextResponse.json(
       { error: "No pudimos crear la conversacion." },
       { status: 500 }
