@@ -8,7 +8,7 @@ function getSafeNextPath(request: NextRequest) {
     return next;
   }
 
-  return "/";
+  return "/select";
 }
 
 export async function GET(request: NextRequest) {

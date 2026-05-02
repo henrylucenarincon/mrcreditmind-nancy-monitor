@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Bot, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, Bot, LayoutDashboard, Moon, SunMedium } from "lucide-react";
 import { CopilotChat } from "./CopilotChat";
 import { CopilotContextPanel } from "./CopilotContextPanel";
 import { CopilotSidebar } from "./CopilotSidebar";
@@ -17,6 +17,8 @@ import type {
   CopilotChatMessage,
   CopilotResponse,
 } from "@/lib/copilot/types";
+
+type ThemeMode = "dark" | "light";
 
 type ConversationApiRecord = {
   id: string;
@@ -110,6 +112,7 @@ export function CopilotShell() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [error, setError] = useState("");
+  const [theme, setTheme] = useState<ThemeMode>("light");
 
   const context = useMemo(() => mapResponseContext(latestResponse), [latestResponse]);
   const actions = useMemo(() => mapResponseActions(latestResponse), [latestResponse]);
@@ -130,6 +133,11 @@ export function CopilotShell() {
     } finally {
       setLoadingHistory(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const currentTheme = document.documentElement.getAttribute("data-theme");
+    setTheme(currentTheme === "light" ? "light" : "dark");
   }, []);
 
   async function loadConversation(conversationId: string) {
@@ -160,6 +168,15 @@ export function CopilotShell() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function handleToggleTheme() {
+    setTheme((current) => {
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("nancy-theme", next);
+      return next;
+    });
   }
 
   async function handleCreateConversation() {
@@ -318,6 +335,23 @@ export function CopilotShell() {
                   <ArrowLeft className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
                   Monitor
                 </Link>
+                <button
+                  type="button"
+                  onClick={handleToggleTheme}
+                  aria-label="Cambiar tema"
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition hover:bg-white/5"
+                  style={{
+                    borderColor: "var(--border)",
+                    backgroundColor: "rgba(255,255,255,0.03)",
+                    color: "var(--foreground)",
+                  }}
+                >
+                  {theme === "dark" ? (
+                    <SunMedium className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
+                  ) : (
+                    <Moon className="h-4 w-4" style={{ color: "var(--brand-blue)" }} />
+                  )}
+                </button>
                 <span
                   className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
                   style={{

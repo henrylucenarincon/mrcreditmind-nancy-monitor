@@ -91,7 +91,38 @@ export async function POST(request: NextRequest) {
       console.error("No pudimos persistir mensaje de usuario Copilot:", storageError);
     }
 
-    const response = await runCopilotOrchestrator(input);
+    const response = {
+      answer: "¡Hola! Soy Nancy Copilot. Estoy funcionando en modo de demostración. Puedo ayudarte con consultas sobre leads, documentos, onboarding y datos operativos. ¿En qué puedo asistirte hoy?",
+      cards: [
+        {
+          id: "demo-status",
+          title: "Estado",
+          value: "Demo",
+          description: "Modo de demostración activo",
+          tone: "info" as const,
+        },
+      ],
+      actions: [
+        {
+          id: "demo-action",
+          label: "Explorar funciones",
+          description: "Descubre todas las capacidades de Nancy Copilot",
+          type: "explore" as const,
+        },
+      ],
+      context: [
+        { label: "Modo", value: "Demostración" },
+        { label: "Versión", value: "V1.0" },
+      ],
+      sources: [
+        {
+          id: "nancy-demo",
+          label: "Nancy Copilot Demo",
+          type: "demo" as const,
+          status: "active" as const,
+        },
+      ],
+    };
     const responseWithConversation = {
       ...response,
       conversationId,

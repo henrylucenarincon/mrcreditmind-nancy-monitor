@@ -34,7 +34,7 @@ export function CopilotContextPanel({
 }) {
   return (
     <aside
-      className="flex min-h-0 flex-col rounded-3xl border p-4"
+      className="flex min-h-0 flex-col rounded-3xl border p-4 overflow-hidden"
       style={{
         borderColor: "var(--border)",
         backgroundColor: "rgba(255,255,255,0.03)",
@@ -112,7 +112,7 @@ export function CopilotContextPanel({
         </div>
       </div>
 
-      <div className="mt-5 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="mt-5 flex-1 min-h-0 space-y-3 overflow-y-auto pr-1">
         {actions.map((action) => (
           <div
             className="rounded-2xl border p-4"
