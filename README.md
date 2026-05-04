@@ -1,5 +1,15 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Nancy Project Docs
+
+Internal context for Nancy lives in `docs/`:
+
+- [Project Context](docs/PROJECT_CONTEXT.md)
+- [Project Status](docs/PROJECT_STATUS.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Technical Decisions](docs/DECISIONS.md)
+- [Codex Prompts](docs/CODEX_PROMPTS.md)
+
 ## Getting Started
 
 First, run the development server:
