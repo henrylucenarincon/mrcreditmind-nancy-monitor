@@ -12,7 +12,7 @@ Se agrego una capa minima y reutilizable de seguridad:
 - `lib/auth/require-role.ts`: valida perfil interno activo y rol permitido, y permite responder 403.
 - `lib/auth/roles.ts`: define roles internos permitidos.
 - `lib/security/audit-log.ts`: registra eventos de seguridad server-side sin guardar contenido completo de mensajes.
-- `supabase/migrations/20260504_02_security_roles_audit.sql`: crea perfiles internos y auditoria minima.
+- `supabase/migrations/20260504120000_security_roles_audit.sql`: crea perfiles internos y auditoria minima.
 
 ## Rutas del Panel
 
@@ -135,7 +135,7 @@ Aplicar la migracion:
 supabase db push
 ```
 
-O ejecutar el SQL de `supabase/migrations/20260504_02_security_roles_audit.sql` en el editor SQL de Supabase.
+O ejecutar el SQL de `supabase/migrations/20260504120000_security_roles_audit.sql` en el editor SQL de Supabase.
 
 Despues de aplicar la migracion, crear perfiles internos para los usuarios autorizados. Ejemplo con placeholder:
 

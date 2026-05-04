@@ -50,7 +50,7 @@ Fuera del repo ya existe:
 
 ## Prioridades Inmediatas
 
-1. Aplicar `supabase/migrations/20260504_02_security_roles_audit.sql`.
+1. Aplicar `supabase/migrations/20260504120000_security_roles_audit.sql`.
 2. Crear filas activas en `internal_user_profiles` para usuarios internos autorizados.
 3. Validar en entorno desplegado que Monitor devuelva 401 sin sesion y 403 sin perfil/rol.
 4. Extender roles/auditoria a Copilot antes de ampliar fuentes internas sensibles.
