@@ -7,6 +7,9 @@ export const metadata: Metadata = {
     "Base visual de Nancy Copilot para asistencia comercial interna de Mr.CREDITMIND.",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default function CopilotPage() {
   return <CopilotShell />;
 }

@@ -97,3 +97,13 @@ Contexto: Las conversaciones son informacion interna sensible y deben dejar traz
 Decision: Crear `security_audit_log` y registrar lectura de lista de conversaciones, lectura de mensajes por conversacion y denegaciones 403 en APIs internas.
 
 Consecuencias: La auditoria no debe guardar contenido completo de mensajes ni payloads sensibles. La cobertura debe ampliarse a Copilot, Ops, Voice y conectores en fases siguientes.
+
+## 2026-05-04 - HTML interno no cacheable en CDN
+
+Estado: Aprobada
+
+Contexto: Hostinger/HCDN llego a servir HTML viejo de rutas internas con referencias a assets antiguos de Next.js, causando 404 de CSS/JS y pantallas sin estilos.
+
+Decision: Las rutas `/`, `/login`, `/select`, `/copilot` y futuras rutas `/ops` deben renderizarse como dinamicas con `dynamic = "force-dynamic"` y `revalidate = 0`. Cuando una pagina necesite interactividad cliente, el JSX visual vive en un componente cliente y `page.tsx` queda como wrapper server. Ademas, las rutas internas emiten `Cache-Control: private, no-store, no-cache, max-age=0, must-revalidate`, `CDN-Cache-Control: no-store` y `Surrogate-Control: no-store`.
+
+Consecuencias: El CDN no debe almacenar HTML del panel que pueda apuntar a assets obsoletos. Los assets versionados de `/_next/static/*` conservan el cache largo immutable administrado por Next.js y no reciben reglas `no-store`. Toda nueva ruta interna debe heredar o declarar esta politica antes de desplegarse.
