@@ -37,12 +37,13 @@ export async function findDriveFolderOrFile(
       data: [mapSearchResultToDriveItem(result)],
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo buscar en Google Drive";
     console.error(
       "Error buscando carpeta o archivo en Google Drive:",
-      error instanceof Error ? error.message : error
+      message
     );
 
-    return buildPartialResult("No se pudo buscar en Google Drive");
+    return buildPartialResult(message);
   }
 }
 

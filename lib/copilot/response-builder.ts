@@ -5,7 +5,6 @@ import type {
   CopilotAction,
   CopilotCard,
   CopilotContextEntry,
-  CopilotIntent,
   CopilotOrchestratorResult,
   CopilotResponse,
   CopilotSource,
@@ -43,28 +42,166 @@ function isOperationalData(value: unknown): value is OperationalDataResult {
   return typeof value === "object" && value !== null && "matches" in value;
 }
 
-function intentAnswer(intent: CopilotIntent) {
-  if (intent === "documents") {
-    return "En mock mode, encontre documentos base y una carpeta de cliente. Hay evidencia disponible, pero falta confirmar ingresos.";
+function compactList(items: string[], limit = 3) {
+  const unique = [...new Set(items.filter(Boolean))];
+  if (unique.length <= limit) return unique.join(", ");
+  return `${unique.slice(0, limit).join(", ")} y ${unique.length - limit} mas`;
+}
+
+function formatIntentLevel(level: ClientSummary["intentLevel"]) {
+  if (level === "high") return "alta";
+  if (level === "medium") return "media";
+  return "baja";
+}
+
+function buildClientLine(data: ClientRecord) {
+  if (data.id === "funnelup_no_match") {
+    return "No encontre una coincidencia exacta de cliente en FunnelUp.";
   }
 
-  if (intent === "onboarding_status") {
-    return "El onboarding esta en progreso. El siguiente paso recomendado es completar autorizacion, reporte actualizado e ingreso mensual.";
+  if (data.id === "funnelup_unavailable") {
+    return `FunnelUp no estuvo disponible para validar el cliente: ${data.stage}.`;
   }
 
-  if (intent === "funding") {
-    return "La cualificacion requiere revision. El perfil parece prometedor, pero faltan datos clave antes de estimar elegibilidad.";
+  const contact = [data.email, data.phone].filter(Boolean).join(" / ");
+  return `Encontre a ${data.name} en ${data.source}. Etapa actual: ${data.stage}${contact ? `. Contacto: ${contact}` : ""}.`;
+}
+
+function buildSummaryLines(data: ClientSummary) {
+  const lines = [
+    `Resumen del caso: servicio sugerido ${data.recommendedService}, intencion ${formatIntentLevel(data.intentLevel)}. ${data.lastSignal}`,
+    `Siguiente paso recomendado: ${data.nextBestStep}`,
+  ];
+
+  if (data.consolidated?.onboarding) {
+    const onboarding = data.consolidated.onboarding;
+    lines.push(
+      onboarding.missingItems.length
+        ? `Onboarding: ${onboarding.status}. Pendiente: ${compactList(onboarding.missingItems)}.`
+        : `Onboarding: ${onboarding.status}.`
+    );
   }
 
-  if (intent === "operational_search") {
-    return "Consulte datos operativos mock y encontre reglas internas utiles para el seguimiento y la evaluacion inicial.";
+  if (data.consolidated?.documents) {
+    const documents = data.consolidated.documents;
+    const found = documents.found.length;
+    const review = documents.needsReview.length;
+    const missing = documents.missing.length;
+    lines.push(
+      `Documentos: ${found} encontrados, ${review} por revisar y ${missing} faltantes.`
+    );
   }
 
-  if (intent === "client_lookup") {
-    return "Encontre un lead mock con intencion alta. Recomiendo enviar checklist y agendar evaluacion inicial.";
+  if (data.consolidated?.funding) {
+    const funding = data.consolidated.funding;
+    const amount = funding.approvedAmount ? ` Monto aprobado: ${funding.approvedAmount}.` : "";
+    const blockers = funding.blockers.length
+      ? ` Bloqueos: ${compactList(funding.blockers)}.`
+      : "";
+    lines.push(`Funding: ${funding.status}.${amount}${blockers}`);
   }
 
-  return "Estoy usando la arquitectura mock de Nancy Copilot. Puedo resumir un lead, revisar documentos, onboarding, funding o datos operativos cuando conectemos las fuentes reales.";
+  if (data.consolidated?.operations?.matches.length) {
+    lines.push(`Datos operativos: ${compactList(data.consolidated.operations.matches, 2)}.`);
+  }
+
+  if (data.consolidated?.partialNotes.length) {
+    lines.push(`Lectura parcial: ${compactList(data.consolidated.partialNotes, 2)}.`);
+  }
+
+  return lines;
+}
+
+function buildOnboardingLine(data: OnboardingStatus) {
+  const status = data.onboardingStatus || data.status;
+  const pending = [...data.missingItems, ...(data.missingDocuments ?? [])];
+  if (pending.length === 0) {
+    return `Onboarding: ${status}. No hay pendientes confirmados en la fuente disponible.`;
+  }
+
+  return `Onboarding: ${status}. Pendiente: ${compactList(pending)}.`;
+}
+
+function buildDocumentsLine(data: ClientDocument[]) {
+  const available = data.filter((document) => document.status === "available");
+  const review = data.filter((document) => document.status === "needs_review");
+  const missing = data.filter((document) => document.status === "missing");
+  const details = [
+    available.length ? `encontrados: ${compactList(available.map((document) => document.name))}` : "",
+    review.length ? `por revisar: ${compactList(review.map((document) => document.name))}` : "",
+    missing.length ? `faltantes: ${compactList(missing.map((document) => document.name))}` : "",
+  ].filter(Boolean);
+
+  return details.length
+    ? `Documentos: ${details.join("; ")}.`
+    : "Documentos: no encontre documentos accionables en la fuente disponible.";
+}
+
+function buildDriveLine(data: DriveItem[]) {
+  const found = data.filter((item) => item.id !== "google_drive_resource_pending");
+  if (found.length === 0) {
+    const notes = compactList(data.flatMap((item) => item.notes ?? []), 2);
+    return notes
+      ? `Drive: no encontre un recurso exacto. ${notes}.`
+      : "Drive: no encontre un recurso exacto con la informacion disponible.";
+  }
+
+  return `Drive: ${compactList(found.map((item) => `${item.kind} ${item.name}`))}.`;
+}
+
+function buildFundingLine(data: FundingStatus) {
+  const status = data.fundingStatus || data.eligibility;
+  const parts = [`Funding: ${status}`];
+  if (data.approvedAmount) parts.push(`monto aprobado ${data.approvedAmount}`);
+  if (data.stage) parts.push(`etapa ${data.stage}`);
+  if (data.blockers.length) parts.push(`bloqueos ${compactList(data.blockers)}`);
+  if (data.notes) parts.push(data.notes);
+
+  return `${parts.join(". ")}.`;
+}
+
+function buildOperationalLine(data: OperationalDataResult) {
+  if (data.matches.length === 0) {
+    return data.summary || "Datos operativos: no encontre coincidencias exactas.";
+  }
+
+  return `${data.summary || "Datos operativos encontrados."} Principal: ${compactList(
+    data.matches.map((match) => `${match.title}: ${match.excerpt}`),
+    2
+  )}.`;
+}
+
+function buildAnswer(result: CopilotOrchestratorResult) {
+  const lines: string[] = [];
+
+  result.toolResults.forEach((toolResult) => {
+    const { data } = toolResult;
+
+    if (isClientRecord(data)) lines.push(buildClientLine(data));
+    if (isClientSummary(data)) lines.push(...buildSummaryLines(data));
+    if (isOnboardingStatus(data)) lines.push(buildOnboardingLine(data));
+    if (isDocumentList(data)) lines.push(buildDocumentsLine(data));
+    if (isDriveItemList(data)) lines.push(buildDriveLine(data));
+    if (isFundingStatus(data)) lines.push(buildFundingLine(data));
+    if (isOperationalData(data)) lines.push(buildOperationalLine(data));
+  });
+
+  const partialSources = result.toolResults
+    .map((toolResult) => toolResult.source)
+    .filter((source) => source.status !== "used")
+    .map((source) => source.label);
+
+  if (partialSources.length) {
+    lines.push(
+      `Algunas fuentes quedaron parciales o pendientes: ${compactList(partialSources)}. Respondo con la informacion disponible.`
+    );
+  }
+
+  if (lines.length === 0) {
+    return "No encontre datos suficientes para una revision especifica. Enviame un nombre, email, telefono, carpeta, documento o estado que quieras revisar y consulto las fuentes disponibles.";
+  }
+
+  return [...new Set(lines)].join("\n\n");
 }
 
 export function buildCopilotResponse(result: CopilotOrchestratorResult): CopilotResponse {
@@ -194,7 +331,7 @@ export function buildCopilotResponse(result: CopilotOrchestratorResult): Copilot
         id: "documents",
         title: "Documentos",
         value: `${data.length} revisados`,
-        description: missing.length ? `${missing.length} faltante` : "Sin faltantes mock",
+        description: missing.length ? `${missing.length} faltante` : "Sin faltantes confirmados",
         tone: missing.length ? "warning" : "success",
       });
       if (available.length > 0) {
@@ -289,15 +426,15 @@ export function buildCopilotResponse(result: CopilotOrchestratorResult): Copilot
 
   if (sources.length === 0) {
     sources.push({
-      id: "mock-copilot-default",
-      label: "Nancy Copilot mock responder",
-      type: "mock",
+      id: "nancy-copilot-default",
+      label: "Nancy Copilot",
+      type: "internal",
       status: "used",
     });
   }
 
   return {
-    answer: intentAnswer(result.intent),
+    answer: buildAnswer(result),
     cards,
     actions,
     context,

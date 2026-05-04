@@ -4,6 +4,8 @@ import {
   ensureCopilotConversation,
   getCurrentUserId,
 } from "@/lib/copilot/history";
+import { runOpenAICopilot } from "@/lib/copilot/openai-client";
+import { runCopilotOrchestrator } from "@/lib/copilot/orchestrator";
 import type {
   CopilotChatMessage,
   CopilotChatRequest,
@@ -43,14 +45,18 @@ function parseRequestBody(body: unknown): CopilotChatRequest | null {
     return null;
   }
 
-  if (conversationId !== undefined && typeof conversationId !== "string") {
+  if (
+    conversationId !== undefined &&
+    conversationId !== null &&
+    typeof conversationId !== "string"
+  ) {
     return null;
   }
 
   return {
     message: message.trim(),
     history,
-    conversationId,
+    conversationId: typeof conversationId === "string" ? conversationId : undefined,
   };
 }
 
@@ -94,38 +100,31 @@ export async function POST(request: NextRequest) {
       console.error("No pudimos persistir mensaje de usuario Copilot:", storageError);
     }
 
-    const response: CopilotResponse = {
-      answer: "¡Hola! Soy Nancy Copilot. Estoy funcionando en modo de demostración. Puedo ayudarte con consultas sobre leads, documentos, onboarding y datos operativos. ¿En qué puedo asistirte hoy?",
-      cards: [
-        {
-          id: "demo-status",
-          title: "Estado",
-          value: "Demo",
-          description: "Modo de demostración activo",
-          tone: "info" as const,
-        },
-      ],
-      actions: [
-        {
-          id: "demo-action",
-          label: "Explorar funciones",
-          description: "Descubre todas las capacidades de Nancy Copilot",
-          type: "review_data",
-        },
-      ],
-      context: [
-        { label: "Modo", value: "Demostración" },
-        { label: "Versión", value: "V1.0" },
-      ],
-      sources: [
-        {
-          id: "nancy-demo",
-          label: "Nancy Copilot Demo",
-          type: "internal",
-          status: "used",
-        },
-      ],
-    };
+    let response: CopilotResponse;
+
+    try {
+      response = await runOpenAICopilot(input);
+    } catch (agentError) {
+      console.error(
+        "Nancy Copilot OpenAI agent no disponible, usando fallback local:",
+        agentError
+      );
+      const fallbackResponse = await runCopilotOrchestrator(input);
+      response = {
+        ...fallbackResponse,
+        answer: `${fallbackResponse.answer}\n\nNota: el modelo conversacional no estuvo disponible ahora mismo. Respondo con el contexto estructurado disponible.`,
+        sources: [
+          ...fallbackResponse.sources,
+          {
+            id: "openai-conversational-model-pending",
+            label: "OpenAI conversational model pending",
+            type: "internal",
+            status: "pending",
+          },
+        ],
+      };
+    }
+
     const responseWithConversation = {
       ...response,
       conversationId,
@@ -149,7 +148,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error en /api/copilot/chat:", error);
     return NextResponse.json(
-      { error: "Error interno generando respuesta mock de Copilot." },
+      { error: "Error interno generando respuesta de Copilot." },
       { status: 500 }
     );
   }

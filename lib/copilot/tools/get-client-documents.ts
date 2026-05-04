@@ -38,12 +38,13 @@ export async function getClientDocuments(
       data: workspace.documents.map((document) => mapDriveFileToClientDocument(document, workspace)),
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo leer Google Drive";
     console.error(
       "Error leyendo documentos desde Google Drive:",
-      error instanceof Error ? error.message : error
+      message
     );
 
-    return buildPartialDocumentsResult("No se pudo leer Google Drive", []);
+    return buildPartialDocumentsResult(message, []);
   }
 }
 

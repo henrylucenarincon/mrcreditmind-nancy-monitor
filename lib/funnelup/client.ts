@@ -252,7 +252,7 @@ export async function searchFunnelUpContacts(query: string): Promise<FunnelUpSea
     query: query.trim(),
   });
 
-  const payload = await requestFunnelUp(`/contacts/search?${params.toString()}`);
+  const payload = await requestFunnelUp(`/contacts/?${params.toString()}`);
   const matches = extractContacts(payload)
     .map((contact) => ({
       contact,

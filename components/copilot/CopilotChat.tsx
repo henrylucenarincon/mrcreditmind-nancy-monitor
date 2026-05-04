@@ -163,7 +163,7 @@ export function CopilotChat({
                   <span>{message.time}</span>
                 </div>
                 <div
-                  className="rounded-[28px] border px-5 py-4 text-sm leading-6 shadow-sm"
+                  className="whitespace-pre-line rounded-[28px] border px-5 py-4 text-sm leading-6 shadow-sm"
                   style={{
                     borderColor: isAssistant ? "var(--border)" : "var(--status-warning-border)",
                     backgroundColor: isAssistant ? "var(--card)" : "var(--status-warning-bg)",

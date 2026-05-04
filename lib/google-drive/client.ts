@@ -199,7 +199,10 @@ async function listDriveFiles(q: string, pageSize = 20): Promise<GoogleDriveFile
   });
 
   if (!response.ok) {
-    throw new Error(`Google Drive respondio ${response.status}.`);
+    const errorText = await response.text();
+    throw new Error(
+      `Google Drive respondio ${response.status}: ${errorText.slice(0, 240)}`
+    );
   }
 
   const payload = (await response.json()) as unknown;

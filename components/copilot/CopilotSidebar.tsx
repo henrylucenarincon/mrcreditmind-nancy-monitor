@@ -74,8 +74,8 @@ export function CopilotSidebar({
           </div>
         ) : null}
 
-        {items.map((item, index) => {
-          const isActive = activeId ? item.id === activeId : index === 0;
+        {items.map((item) => {
+          const isActive = item.id === activeId;
 
           return (
             <button

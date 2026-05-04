@@ -231,7 +231,11 @@ export function CopilotShell() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message, history, conversationId: activeConversationId }),
+        body: JSON.stringify({
+          message,
+          history,
+          conversationId: activeConversationId ?? undefined,
+        }),
       });
 
       if (!response.ok) {
