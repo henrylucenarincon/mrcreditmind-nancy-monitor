@@ -111,3 +111,13 @@ Consecuencias: El CDN no debe almacenar HTML del panel que pueda apuntar a asset
 Validacion: Produccion en Hostinger fue validada el 2026-05-04 para `/`, `/login`, `/select` y `/copilot`; las rutas cargan correctamente y el problema de HTML viejo cacheado quedo corregido.
 
 Operacion: Hostinger/HCDN requiere purga de HTML interno tras deploys importantes, especialmente cuando cambia el build de Next.js, la configuracion de cache o el runtime standalone. No purgar agresivamente `/_next/static/*` salvo incidente especifico, porque los assets versionados deben conservar cache immutable.
+
+## 2026-05-04 - Readonly queda fuera de Copilot APIs
+
+Estado: Aprobada
+
+Contexto: Nancy Copilot puede resumir, cruzar o preparar informacion sensible de clientes aunque las fuentes internas esten todavia en modo inicial. El rol `readonly` es suficiente para Monitor, pero no para un asistente que puede combinar historial, prompts, herramientas y respuestas generadas.
+
+Decision: Proteger `app/api/copilot/**` con `requireRole(COPILOT_API_ROLES)` y permitir inicialmente solo `admin`, `manager`, `ops` y `sales`. El rol `readonly` recibe 403 en APIs de Copilot. `/copilot` sigue siendo ruta interna protegida por proxy, pero la autorizacion fina se aplica en cada API.
+
+Consecuencias: Copilot queda cerrado antes de ampliar herramientas con FunnelUp, Google Drive, Google Sheets o documentos sensibles. La UI debe manejar 403 sin romper la pantalla. Antes de habilitar `readonly` o permisos mas finos, se requiere masking centralizado, permisos por dato/fuente y auditoria extendida de tools.

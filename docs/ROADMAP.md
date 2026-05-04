@@ -53,7 +53,7 @@ Estado 2026-05-04:
 
 ## Fase 2: Nancy Copilot Seguro
 
-Estado: Proxima fase
+Estado: En progreso
 
 Objetivo: convertir Nancy Copilot en una herramienta util y segura para consultar clientes, documentos, funding y operaciones.
 
@@ -73,6 +73,14 @@ Criterio de salida:
 - Copilot responde preguntas reales del equipo usando datos internos permitidos y auditados.
 - Las respuestas no inventan datos y citan la fuente interna usada.
 - Los datos sensibles se enmascaran segun nivel y rol.
+
+Estado 2026-05-04:
+
+- Implementado: role-gating en `app/api/copilot/**` con roles `admin`, `manager`, `ops` y `sales`.
+- Implementado: `readonly` bloqueado para APIs de Copilot.
+- Implementado: auditoria minima de listado/creacion de conversaciones, lectura de mensajes, envio de mensajes, denegaciones 403 y errores relevantes.
+- Implementado: UI de Copilot maneja 401, 403, 500, respuestas no JSON y estructuras inesperadas sin romper la pantalla.
+- Pendiente: masking centralizado, ficha cliente normalizada, permisos por dato/fuente y auditoria extendida de tools.
 
 ## Fase 3: Nancy Ops
 

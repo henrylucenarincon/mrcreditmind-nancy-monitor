@@ -11,12 +11,14 @@ export function CopilotSidebar({
   items,
   activeId,
   isLoading,
+  isDisabled = false,
   onCreate,
   onSelect,
 }: {
   items: CopilotHistoryItem[];
   activeId: string | null;
   isLoading: boolean;
+  isDisabled?: boolean;
   onCreate: () => void;
   onSelect: (id: string) => void;
 }) {
@@ -45,7 +47,9 @@ export function CopilotSidebar({
             borderColor: "var(--border)",
             backgroundColor: "var(--card)",
             color: "var(--foreground-soft)",
+            opacity: isDisabled ? 0.55 : 1,
           }}
+          disabled={isDisabled}
           type="button"
         >
           <span className="inline-flex items-center gap-1.5">
@@ -82,10 +86,12 @@ export function CopilotSidebar({
               className="w-full rounded-2xl border p-4 text-left"
               key={item.id}
               onClick={() => onSelect(item.id)}
+              disabled={isDisabled}
               style={{
                 borderColor: isActive ? "var(--status-warning-border)" : "var(--border)",
                 backgroundColor: isActive ? "var(--status-warning-bg)" : "var(--card)",
                 boxShadow: isActive ? "0 0 0 1px rgba(184,161,127,0.06)" : "none",
+                opacity: isDisabled ? 0.65 : 1,
               }}
               type="button"
             >

@@ -4,7 +4,7 @@ Ultima actualizacion: 2026-05-04
 
 Este documento registra el audit de rutas y el estado de seguridad base del panel Nancy. No incluir secretos, tokens, contrasenas, SSN completos ni datos reales de clientes.
 
-## Resumen de Fase 1
+## Resumen de Fase 1 y Fase 2.1
 
 Se agrego una capa minima y reutilizable de seguridad:
 
@@ -13,6 +13,7 @@ Se agrego una capa minima y reutilizable de seguridad:
 - `lib/auth/roles.ts`: define roles internos permitidos.
 - `lib/security/audit-log.ts`: registra eventos de seguridad server-side sin guardar contenido completo de mensajes.
 - `supabase/migrations/20260504120000_security_roles_audit.sql`: crea perfiles internos y auditoria minima.
+- `lib/copilot/security.ts`: define roles permitidos para Copilot y helpers de auditoria sin guardar prompts ni respuestas completas.
 
 ## Rutas del Panel
 
@@ -41,10 +42,10 @@ Notas:
 | --- | --- | --- | --- |
 | `GET /api/conversations` | Interno | `requireRole(CONVERSATION_READER_ROLES)` | Lee resumenes de Monitor. Registra `conversations.list.read`. |
 | `GET /api/conversations/[conversationId]` | Interno | `requireRole(CONVERSATION_READER_ROLES)` | Lee mensajes de una conversacion. Registra `conversations.messages.read`. |
-| `POST /api/copilot/chat` | Interno | Usuario autenticado via historial Copilot | Pendiente role-gating antes de ampliar datos internos reales. |
-| `GET /api/copilot/conversations` | Interno | Usuario autenticado y RLS por `user_id` | Historial propio del usuario. |
-| `POST /api/copilot/conversations` | Interno | Usuario autenticado y RLS por `user_id` | Crea historial propio del usuario. |
-| `GET /api/copilot/conversations/[conversationId]/messages` | Interno | Usuario autenticado y RLS por `user_id` | Mensajes propios del usuario. |
+| `POST /api/copilot/chat` | Interno | `requireRole(COPILOT_API_ROLES)` y RLS por `user_id` | Envia mensaje a Copilot. Roles: `admin`, `manager`, `ops`, `sales`. `readonly` bloqueado. Registra `copilot.chat.message.sent`, `copilot.chat.rejected`, denegaciones y errores. |
+| `GET /api/copilot/conversations` | Interno | `requireRole(COPILOT_API_ROLES)` y RLS por `user_id` | Lista historial propio del usuario. Roles: `admin`, `manager`, `ops`, `sales`. Registra `copilot.conversations.list.read`. |
+| `POST /api/copilot/conversations` | Interno | `requireRole(COPILOT_API_ROLES)` y RLS por `user_id` | Crea historial propio del usuario. Roles: `admin`, `manager`, `ops`, `sales`. Registra `copilot.conversation.created`. |
+| `GET /api/copilot/conversations/[conversationId]/messages` | Interno | `requireRole(COPILOT_API_ROLES)` y RLS por `user_id` | Lee mensajes propios del usuario. Roles: `admin`, `manager`, `ops`, `sales`. Registra `copilot.messages.read`. |
 | `POST /api/auth/logout` | Sesion/auth | Cliente SSR Supabase | Cierra sesion; no expone datos internos. |
 
 ## Roles Internos
@@ -64,6 +65,15 @@ Roles permitidos para leer conversaciones de Monitor:
 - `ops`
 - `sales`
 - `readonly`
+
+Roles permitidos para usar APIs de Nancy Copilot:
+
+- `admin`
+- `manager`
+- `ops`
+- `sales`
+
+`readonly` no puede usar APIs de Copilot por ahora, porque Copilot puede resumir, cruzar o preparar informacion sensible incluso cuando la fuente final todavia este en modo parcial.
 
 Regla operativa: un usuario autenticado sin fila activa en `internal_user_profiles` recibe 403 en APIs internas protegidas por rol.
 
@@ -119,25 +129,34 @@ Eventos registrados:
 
 - `conversations.list.read`
 - `conversations.messages.read`
+- `copilot.conversations.list.read`
+- `copilot.conversation.created`
+- `copilot.messages.read`
+- `copilot.chat.message.sent`
+- `copilot.chat.rejected`
+- `copilot.api.error`
 - `internal_api.access_denied`
 
 Metadata permitida:
 
-- Conteos, limites, rol, motivo de denegacion y `conversationId`.
+- Conteos, limites, rol, motivo de denegacion, `conversationId`, status, source type/status, cantidad aproximada de caracteres y error code generico.
 - No guardar contenido completo de mensajes.
 - No guardar documentos, SSN, credenciales, tokens ni payloads completos de clientes.
+- No guardar prompts completos, respuestas completas del modelo ni URLs privadas completas si pueden contener informacion sensible.
 
-## Aplicacion de Migracion
+## Estado de Migracion
 
-Aplicar la migracion:
+La migracion de roles internos y auditoria minima ya fue aplicada y validada en produccion.
+
+Referencia:
 
 ```bash
 supabase db push
 ```
 
-O ejecutar el SQL de `supabase/migrations/20260504120000_security_roles_audit.sql` en el editor SQL de Supabase.
+O ejecutar el SQL de `supabase/migrations/20260504120000_security_roles_audit.sql` en el editor SQL de Supabase cuando se replique el entorno.
 
-Despues de aplicar la migracion, crear perfiles internos para los usuarios autorizados. Ejemplo con placeholder:
+Crear perfiles internos para usuarios autorizados cuando se provisionen nuevas cuentas. Ejemplo con placeholder:
 
 ```sql
 insert into public.internal_user_profiles (id, email, full_name, role, is_active)
@@ -152,12 +171,30 @@ set role = excluded.role,
     updated_at = now();
 ```
 
-Sin una fila activa en `internal_user_profiles`, el usuario autenticado no podra leer las APIs protegidas de Monitor.
+Sin una fila activa en `internal_user_profiles`, el usuario autenticado no podra usar APIs internas protegidas.
+
+## Seguridad de Copilot
+
+`/copilot` sigue siendo una ruta interna protegida por `proxy.ts`. Las APIs de `app/api/copilot/**` tambien validan sesion y rol dentro de cada route handler.
+
+Protecciones aplicadas:
+
+- `GET /api/copilot/conversations`: lista solo historial del usuario autenticado y registra auditoria.
+- `POST /api/copilot/conversations`: crea conversacion del usuario autenticado y registra auditoria.
+- `GET /api/copilot/conversations/[conversationId]/messages`: lee solo mensajes del usuario autenticado y registra auditoria.
+- `POST /api/copilot/chat`: valida rol antes de parsear/ejecutar Copilot, no registra prompts completos y registra metadata minima.
+- UI de Copilot maneja 401, 403, 500, respuestas no JSON y estructuras inesperadas con mensajes controlados.
+
+Reglas de auditoria para Copilot:
+
+- Permitido guardar `conversationId`, status, role, source type/status, conteos y cantidades aproximadas de caracteres.
+- No guardar prompts completos, respuestas completas, documentos completos, SSN, passwords, tokens, credenciales, URLs privadas completas ni contenido completo de conversaciones.
+- `readonly` queda bloqueado hasta que existan permisos por dato, masking centralizado y politica de exposicion mas fina.
 
 ## Riesgos Pendientes
 
-- Copilot aun no esta role-gated; hoy valida usuario autenticado para historial, pero debe pasar por roles antes de conectarse a datos internos mas sensibles.
+- Copilot ya esta role-gated, pero aun necesita permisos por dato/fuente antes de ampliar datos internos reales.
 - Monitor sigue usando service role server-side despues de autorizacion; se debe migrar gradualmente a lecturas con cliente SSR/RLS cuando el contrato de permisos este completo.
-- Falta auditoria para Copilot, Drive, Sheets, FunnelUp y futuras rutas Ops/Voice.
+- La auditoria de Copilot es minima; falta auditoria extendida por tool, Drive, Sheets, FunnelUp y futuras rutas Ops/Voice.
 - Falta masking centralizado para datos Nivel 2, 3 y 4.
 - Falta proceso administrativo formal para alta/baja/cambio de roles internos.

@@ -84,11 +84,13 @@ function ResponseSources({ sources }: { sources: CopilotSource[] }) {
 export function CopilotChat({
   messages,
   isLoading,
+  isDisabled = false,
   error,
   onSubmit,
 }: {
   messages: CopilotMessage[];
   isLoading: boolean;
+  isDisabled?: boolean;
   error: string;
   onSubmit: (message: string) => Promise<void>;
 }) {
@@ -98,7 +100,7 @@ export function CopilotChat({
     event.preventDefault();
 
     const message = draft.trim();
-    if (!message || isLoading) return;
+    if (!message || isLoading || isDisabled) return;
 
     setDraft("");
     await onSubmit(message);
@@ -253,15 +255,17 @@ export function CopilotChat({
             style={{
               borderColor: "var(--border)",
               color: "var(--brand-gold)",
+              opacity: isDisabled ? 0.55 : 1,
             }}
             type="button"
+            disabled={isDisabled}
             aria-label="Adjuntar contexto"
           >
             <Paperclip className="h-4 w-4" />
           </button>
           <textarea
             className="min-h-10 flex-1 resize-none bg-transparent px-1 py-2 text-sm outline-none"
-            disabled={isLoading}
+            disabled={isLoading || isDisabled}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Escribe una instruccion para Nancy Copilot..."
@@ -271,12 +275,12 @@ export function CopilotChat({
           />
           <button
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border"
-            disabled={isLoading || draft.trim().length === 0}
+            disabled={isLoading || isDisabled || draft.trim().length === 0}
             style={{
               borderColor: "var(--status-warning-border)",
               backgroundColor: "var(--status-warning-bg)",
               color: "var(--status-warning-text)",
-              opacity: isLoading || draft.trim().length === 0 ? 0.55 : 1,
+              opacity: isLoading || isDisabled || draft.trim().length === 0 ? 0.55 : 1,
             }}
             type="submit"
             aria-label="Enviar mensaje"

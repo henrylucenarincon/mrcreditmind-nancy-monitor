@@ -36,6 +36,26 @@ type MessageApiRecord = {
   created_at: string;
 };
 
+type CopilotApiErrorCode =
+  | "unauthenticated"
+  | "forbidden"
+  | "server_error"
+  | "non_json_response"
+  | "unexpected_response"
+  | "request_failed";
+
+class CopilotApiError extends Error {
+  status: number;
+  code: CopilotApiErrorCode;
+
+  constructor(message: string, status: number, code: CopilotApiErrorCode) {
+    super(message);
+    this.name = "CopilotApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function formatTime() {
   return new Intl.DateTimeFormat("es-PR", {
     hour: "2-digit",
@@ -104,6 +124,113 @@ function mapApiMessageToUi(item: MessageApiRecord): CopilotMessage {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isConversationRecord(value: unknown): value is ConversationApiRecord {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.title === "string" &&
+    (typeof value.summary === "string" || value.summary === null) &&
+    typeof value.created_at === "string" &&
+    typeof value.updated_at === "string"
+  );
+}
+
+function isMessageRecord(value: unknown): value is MessageApiRecord {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    (value.role === "user" || value.role === "assistant") &&
+    typeof value.content === "string" &&
+    typeof value.created_at === "string"
+  );
+}
+
+function isCopilotResponse(value: unknown): value is CopilotResponse {
+  return (
+    isRecord(value) &&
+    typeof value.answer === "string" &&
+    Array.isArray(value.cards) &&
+    Array.isArray(value.actions) &&
+    Array.isArray(value.context) &&
+    Array.isArray(value.sources) &&
+    (typeof value.conversationId === "string" || value.conversationId === undefined)
+  );
+}
+
+async function readJsonResponse(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw new CopilotApiError(
+      "La respuesta del servidor no tuvo el formato esperado.",
+      response.status,
+      "non_json_response"
+    );
+  }
+
+  return (await response.json()) as unknown;
+}
+
+function getStatusErrorCode(status: number): CopilotApiErrorCode {
+  if (status === 401) return "unauthenticated";
+  if (status === 403) return "forbidden";
+  if (status >= 500) return "server_error";
+  return "request_failed";
+}
+
+function getSafeErrorMessage(error: unknown, fallback: string) {
+  if (!(error instanceof CopilotApiError)) {
+    return fallback;
+  }
+
+  if (error.code === "unauthenticated") {
+    return "Tu sesion expiro o no esta autenticada. Vuelve a iniciar sesion para usar Nancy Copilot.";
+  }
+
+  if (error.code === "forbidden") {
+    return "Tu usuario no tiene permiso para usar Nancy Copilot. Pide acceso a un administrador.";
+  }
+
+  if (error.code === "server_error") {
+    return "Nancy Copilot tuvo un error interno. Intenta de nuevo en unos segundos.";
+  }
+
+  if (error.code === "non_json_response" || error.code === "unexpected_response") {
+    return "Nancy Copilot recibio una respuesta inesperada del servidor. Intenta recargar la pagina.";
+  }
+
+  return fallback;
+}
+
+async function readApiData<T>(
+  response: Response,
+  validate: (value: unknown) => value is T
+) {
+  const data = await readJsonResponse(response);
+
+  if (!response.ok) {
+    throw new CopilotApiError(
+      "No pudimos completar la solicitud.",
+      response.status,
+      getStatusErrorCode(response.status)
+    );
+  }
+
+  if (!validate(data)) {
+    throw new CopilotApiError(
+      "La estructura de respuesta no fue la esperada.",
+      response.status,
+      "unexpected_response"
+    );
+  }
+
+  return data;
+}
+
 export function CopilotShell() {
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [conversations, setConversations] = useState<ConversationApiRecord[]>([]);
@@ -112,6 +239,7 @@ export function CopilotShell() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [error, setError] = useState("");
+  const [isAccessBlocked, setIsAccessBlocked] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>("light");
 
   const context = useMemo(() => mapResponseContext(latestResponse), [latestResponse]);
@@ -125,19 +253,40 @@ export function CopilotShell() {
 
     try {
       const response = await fetch("/api/copilot/conversations", { cache: "no-store" });
-      const data = (await response.json()) as { conversations?: ConversationApiRecord[] };
-      setConversations(data.conversations ?? []);
+      const data = await readApiData(
+        response,
+        (value): value is { conversations: ConversationApiRecord[] } =>
+          isRecord(value) &&
+          Array.isArray(value.conversations) &&
+          value.conversations.every(isConversationRecord)
+      );
+      setConversations(data.conversations);
+      setIsAccessBlocked(false);
     } catch (loadError) {
       console.error("Error cargando historial Copilot:", loadError);
       setConversations([]);
+      setIsAccessBlocked(
+        loadError instanceof CopilotApiError &&
+          (loadError.code === "unauthenticated" || loadError.code === "forbidden")
+      );
+      setError(
+        getSafeErrorMessage(
+          loadError,
+          "No pudimos cargar el historial de Nancy Copilot."
+        )
+      );
     } finally {
       setLoadingHistory(false);
     }
   }, []);
 
   useEffect(() => {
-    const currentTheme = document.documentElement.getAttribute("data-theme");
-    setTheme(currentTheme === "light" ? "light" : "dark");
+    const frame = window.requestAnimationFrame(() => {
+      const currentTheme = document.documentElement.getAttribute("data-theme");
+      setTheme(currentTheme === "light" ? "light" : "dark");
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   async function loadConversation(conversationId: string) {
@@ -150,21 +299,37 @@ export function CopilotShell() {
       });
 
       if (!response.ok) {
-        throw new Error("No pudimos abrir la conversacion.");
+        await readJsonResponse(response);
+        throw new CopilotApiError(
+          "No pudimos abrir la conversacion.",
+          response.status,
+          getStatusErrorCode(response.status)
+        );
       }
 
-      const data = (await response.json()) as {
-        messages?: MessageApiRecord[];
-      };
-      const loadedMessages = (data.messages ?? []).map(mapApiMessageToUi);
+      const data = await readApiData(
+        response,
+        (value): value is { messages: MessageApiRecord[] } =>
+          isRecord(value) &&
+          Array.isArray(value.messages) &&
+          value.messages.every(isMessageRecord)
+      );
+      const loadedMessages = data.messages.map(mapApiMessageToUi);
       setActiveConversationId(conversationId);
       setMessages(loadedMessages);
       setLatestResponse(
         [...loadedMessages].reverse().find((message) => message.response)?.response ?? null
       );
+      setIsAccessBlocked(false);
     } catch (loadError) {
       console.error("Error abriendo conversacion Copilot:", loadError);
-      setError("No pudimos abrir esa conversacion.");
+      setIsAccessBlocked(
+        loadError instanceof CopilotApiError &&
+          (loadError.code === "unauthenticated" || loadError.code === "forbidden")
+      );
+      setError(
+        getSafeErrorMessage(loadError, "No pudimos abrir esa conversacion.")
+      );
     } finally {
       setIsLoading(false);
     }
@@ -189,20 +354,39 @@ export function CopilotShell() {
       });
 
       if (!response.ok) {
-        throw new Error("No pudimos crear la conversacion.");
+        await readJsonResponse(response);
+        throw new CopilotApiError(
+          "No pudimos crear la conversacion.",
+          response.status,
+          getStatusErrorCode(response.status)
+        );
       }
 
-      const data = (await response.json()) as { conversation?: ConversationApiRecord };
-      setActiveConversationId(data.conversation?.id ?? null);
+      const data = await readApiData(
+        response,
+        (value): value is { conversation: ConversationApiRecord } =>
+          isRecord(value) && isConversationRecord(value.conversation)
+      );
+      setActiveConversationId(data.conversation.id);
       setMessages([]);
       setLatestResponse(null);
+      setIsAccessBlocked(false);
       void loadConversations();
     } catch (createError) {
       console.error("Error creando conversacion Copilot:", createError);
       setActiveConversationId(null);
       setMessages([]);
       setLatestResponse(null);
-      setError("No pudimos crear la conversacion guardada. Puedes escribir y se intentara guardar de nuevo.");
+      setIsAccessBlocked(
+        createError instanceof CopilotApiError &&
+          (createError.code === "unauthenticated" || createError.code === "forbidden")
+      );
+      setError(
+        getSafeErrorMessage(
+          createError,
+          "No pudimos crear la conversacion guardada. Puedes escribir y se intentara guardar de nuevo."
+        )
+      );
     }
   }
 
@@ -239,10 +423,15 @@ export function CopilotShell() {
       });
 
       if (!response.ok) {
-        throw new Error("No pudimos obtener respuesta de Nancy Copilot.");
+        await readJsonResponse(response);
+        throw new CopilotApiError(
+          "No pudimos obtener respuesta de Nancy Copilot.",
+          response.status,
+          getStatusErrorCode(response.status)
+        );
       }
 
-      const data = (await response.json()) as CopilotResponse;
+      const data = await readApiData(response, isCopilotResponse);
       if (data.conversationId) {
         setActiveConversationId(data.conversationId);
       }
@@ -258,17 +447,31 @@ export function CopilotShell() {
 
       setLatestResponse(data);
       setMessages((items) => [...items, assistantMessage]);
+      setIsAccessBlocked(false);
       void loadConversations();
     } catch (requestError) {
       console.error("Error consultando Nancy Copilot:", requestError);
-      setError("Nancy no pudo responder ahora mismo. Intenta de nuevo en unos segundos.");
+      setIsAccessBlocked(
+        requestError instanceof CopilotApiError &&
+          (requestError.code === "unauthenticated" || requestError.code === "forbidden")
+      );
+      setError(
+        getSafeErrorMessage(
+          requestError,
+          "Nancy no pudo responder ahora mismo. Intenta de nuevo en unos segundos."
+        )
+      );
     } finally {
       setIsLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadConversations();
+    const frame = window.requestAnimationFrame(() => {
+      void loadConversations();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [loadConversations]);
 
   return (
@@ -377,12 +580,14 @@ export function CopilotShell() {
             activeId={activeConversationId}
             isLoading={loadingHistory}
             items={historyItems}
+            isDisabled={isAccessBlocked}
             onCreate={handleCreateConversation}
             onSelect={(id) => void loadConversation(id)}
           />
           <CopilotChat
             error={error}
             isLoading={isLoading}
+            isDisabled={isAccessBlocked}
             messages={messages}
             onSubmit={handleSubmit}
           />

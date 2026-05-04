@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  forbiddenResponse,
+  isForbiddenError,
+  requireRole,
+  type AuthorizedInternalUserContext,
+} from "@/lib/auth/require-role";
+import {
+  isAuthRequiredError,
+  unauthorizedResponse,
+} from "@/lib/auth/require-user";
+import {
   appendCopilotMessage,
   ensureCopilotConversation,
-  getCurrentUserId,
 } from "@/lib/copilot/history";
 import { runOpenAICopilot } from "@/lib/copilot/openai-client";
 import { runCopilotOrchestrator } from "@/lib/copilot/orchestrator";
+import {
+  COPILOT_API_ROLES,
+  getApproximateCharCount,
+  getCopilotResponseAuditMetadata,
+  logCopilotAccessDenied,
+  logCopilotApiError,
+  logCopilotEvent,
+} from "@/lib/copilot/security";
 import type {
   CopilotChatMessage,
   CopilotChatRequest,
@@ -60,38 +77,54 @@ function parseRequestBody(body: unknown): CopilotChatRequest | null {
   };
 }
 
-export async function POST(request: NextRequest) {
+async function readRequestBody(request: NextRequest) {
   try {
-    const body = await request.json();
-    const input = parseRequestBody(body);
+    return (await request.json()) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+export async function POST(request: NextRequest) {
+  let auth: AuthorizedInternalUserContext | null = null;
+  let input: CopilotChatRequest | null = null;
+  let conversationId: string | undefined;
+
+  try {
+    auth = await requireRole(COPILOT_API_ROLES);
+
+    const body = await readRequestBody(request);
+    input = parseRequestBody(body);
 
     if (!input) {
+      await logCopilotEvent({
+        auth,
+        action: "copilot.chat.rejected",
+        resourceType: "copilot_chat",
+        metadata: {
+          status: "bad_request",
+          errorCode: "invalid_request_body",
+        },
+      });
+
       return NextResponse.json(
         { error: "El body debe incluir message y un history opcional valido." },
         { status: 400 }
       );
     }
 
-    let conversationId = input.conversationId;
-    let userId: string;
-
-    try {
-      userId = await getCurrentUserId();
-    } catch (authError) {
-      console.error("Usuario no autenticado en /api/copilot/chat:", authError);
-      return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-    }
+    conversationId = input.conversationId;
 
     try {
       const conversation = await ensureCopilotConversation(
-        userId,
+        auth.user.id,
         conversationId,
         input.message
       );
       conversationId = conversation.id;
 
       await appendCopilotMessage({
-        userId,
+        userId: auth.user.id,
         conversationId,
         role: "user",
         content: input.message,
@@ -133,7 +166,7 @@ export async function POST(request: NextRequest) {
     if (conversationId) {
       try {
         await appendCopilotMessage({
-          userId,
+          userId: auth.user.id,
           conversationId,
           role: "assistant",
           content: response.answer,
@@ -144,9 +177,54 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    await logCopilotEvent({
+      auth,
+      action: "copilot.chat.message.sent",
+      resourceType: "copilot_conversation",
+      resourceId: conversationId,
+      metadata: {
+        conversationId,
+        status: "success",
+        messageCharCount: getApproximateCharCount(input.message),
+        historyMessageCount: input.history?.length ?? 0,
+        responseCharCount: getApproximateCharCount(response.answer),
+        ...getCopilotResponseAuditMetadata(response),
+      },
+    });
+
     return NextResponse.json(responseWithConversation);
   } catch (error) {
+    if (isAuthRequiredError(error)) {
+      return unauthorizedResponse();
+    }
+
+    if (isForbiddenError(error)) {
+      await logCopilotAccessDenied({
+        error,
+        route: "/api/copilot/chat",
+        metadata: {
+          method: "POST",
+          conversationId,
+          messageCharCount: getApproximateCharCount(input?.message),
+        },
+      });
+
+      return forbiddenResponse();
+    }
+
     console.error("Error en /api/copilot/chat:", error);
+    await logCopilotApiError({
+      auth,
+      route: "/api/copilot/chat",
+      operation: "send_message",
+      resourceId: conversationId,
+      errorCode: "copilot_chat_failed",
+      metadata: {
+        conversationId,
+        messageCharCount: getApproximateCharCount(input?.message),
+      },
+    });
+
     return NextResponse.json(
       { error: "Error interno generando respuesta de Copilot." },
       { status: 500 }
