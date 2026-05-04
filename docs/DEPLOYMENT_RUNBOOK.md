@@ -49,7 +49,16 @@ No aplicar reglas `no-store` a `/_next/static/*`.
 
 ## Verificacion post-deploy
 
-Verificar rutas internas:
+Checklist post-deploy validado:
+
+- Confirmar que el proceso standalone inicio sin errores.
+- Abrir `/`, `/login`, `/select` y `/copilot` en produccion.
+- Confirmar que ninguna pagina queda sin estilos ni errores de chunks antiguos.
+- Confirmar que las rutas internas devuelven headers `no-store`.
+- Confirmar que un asset real de `/_next/static/*` devuelve cache largo `immutable`.
+- Purgar en Hostinger/HCDN el HTML interno tras deploys importantes.
+
+Verificar headers de rutas internas:
 
 ```bash
 curl -I https://TU_DOMINIO/
@@ -58,7 +67,13 @@ curl -I https://TU_DOMINIO/select
 curl -I https://TU_DOMINIO/copilot
 ```
 
-Cada respuesta HTML debe incluir `Cache-Control` con `no-store`.
+Cada respuesta HTML debe incluir headers equivalentes a:
+
+```txt
+Cache-Control: private, no-store, no-cache, max-age=0, must-revalidate
+CDN-Cache-Control: no-store
+Surrogate-Control: no-store
+```
 
 Verificar un asset real tomado del HTML o de `.next/static`:
 
@@ -67,6 +82,21 @@ curl -I https://TU_DOMINIO/_next/static/CHUNK_REAL.js
 ```
 
 La respuesta de `/_next/static/*` debe incluir cache largo e `immutable`.
+
+Ejemplo de header esperado para assets versionados:
+
+```txt
+Cache-Control: public, max-age=31536000, immutable
+```
+
+Resultado validado en produccion 2026-05-04:
+
+- `/` carga correctamente.
+- `/login` carga correctamente.
+- `/select` carga correctamente.
+- `/copilot` carga correctamente.
+- HTML interno ya no queda cacheado agresivamente por HCDN.
+- `/_next/static/*` conserva cache largo immutable.
 
 ## Despues de cada deploy
 

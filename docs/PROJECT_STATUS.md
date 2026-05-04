@@ -4,9 +4,28 @@ Ultima actualizacion: 2026-05-04
 
 ## Estado Actual
 
-Nancy Monitor es un MVP funcional dentro del panel. Nancy Copilot tiene una base visual, API, historial y conectores iniciales. Nancy Chat externo ya funciona fuera del repo mediante WhatsApp/Messenger, n8n y FunnelUp/Funnel App. Nancy Ops y Nancy Voice siguen en etapa de diseno.
+Nancy Monitor es un MVP funcional dentro del panel y esta validado en produccion en Hostinger. Nancy Copilot tiene una base visual, API, historial y conectores iniciales. Nancy Chat externo ya funciona fuera del repo mediante WhatsApp/Messenger, n8n y FunnelUp/Funnel App. Nancy Ops y Nancy Voice siguen en etapa de diseno.
 
-El repo actual es una aplicacion Next.js/TypeScript llamada `nancy-monitor`, con Supabase como base de datos y despliegue previsto en Hostinger Node.js.
+El repo actual es una aplicacion Next.js/TypeScript llamada `nancy-monitor`, con Supabase como base de datos y despliegue standalone en Hostinger Node.js.
+
+## Fases Completadas
+
+- Fase 0: documentacion base del proyecto.
+- Fase 1: seguridad base de Nancy Monitor.
+- Fase 1.1: migracion Supabase, roles internos y auditoria minima.
+- Fase 1.2: cache hardening de rutas internas.
+
+## Validacion en Produccion
+
+Validado en Hostinger/HCDN el 2026-05-04:
+
+- `/` carga correctamente.
+- `/login` carga correctamente.
+- `/select` carga correctamente.
+- `/copilot` carga correctamente.
+- El problema de HTML viejo cacheado apuntando a chunks antiguos de Next.js quedo corregido.
+- Las rutas internas se sirven como dinamicas/no-store.
+- `/_next/static/*` mantiene cache largo immutable para assets versionados.
 
 ## Que Existe
 
@@ -21,7 +40,9 @@ El repo actual es una aplicacion Next.js/TypeScript llamada `nancy-monitor`, con
 - Helpers server-side para usuario autenticado, rol interno y respuestas 401/403.
 - Modelo minimo `internal_user_profiles` con roles `admin`, `manager`, `ops`, `sales` y `readonly`.
 - Tabla `security_audit_log` para auditoria minima.
+- Migracion Supabase de roles/auditoria aplicada y validada.
 - APIs de Nancy Monitor protegidas por sesion y rol antes de usar service role server-side.
+- Rutas internas dinamicas/no-store para evitar HTML cacheado agresivamente en CDN.
 - Clientes/conectores para FunnelUp, Google Drive y Google Sheets.
 - Variables de entorno de ejemplo para Supabase, OpenAI, FunnelUp, Drive y Sheets.
 - Assets de marca de Mr.CREDITMIND/Nancy.
@@ -34,32 +55,20 @@ Fuera del repo ya existe:
 - Automatizaciones de agendamiento y callbacks.
 - Registro de senales conversacionales para Monitor.
 
-## Que Esta Pendiente
+## Proximos Pasos
 
-- Aplicar la migracion de seguridad en Supabase y crear perfiles internos activos para usuarios autorizados.
-- Extender role-gating a Copilot antes de conectarlo a datos internos mas sensibles.
-- Agregar auditoria central para Copilot, Drive, Sheets, FunnelUp, Ops y Voice.
-- Reducir gradualmente el uso de service role en endpoints consumidos por frontend.
-- Normalizar datos de cliente entre FunnelUp, Drive, Sheets y Supabase.
-- Convertir Copilot en asistente real con fuentes internas confiables y respuestas con evidencias.
-- Crear Nancy Ops como seccion propia.
-- Crear contratos de datos para Nancy Voice y proveedor mock.
-- Implementar edicion controlada con confirmacion, permisos y logs.
-- Documentar workflows n8n existentes.
-- Validar viabilidad tecnica y autorizada de SmartCredit.
-
-## Prioridades Inmediatas
-
-1. Aplicar `supabase/migrations/20260504120000_security_roles_audit.sql`.
-2. Crear filas activas en `internal_user_profiles` para usuarios internos autorizados.
-3. Validar en entorno desplegado que Monitor devuelva 401 sin sesion y 403 sin perfil/rol.
-4. Extender roles/auditoria a Copilot antes de ampliar fuentes internas sensibles.
-5. Normalizar perfil de cliente para Copilot usando FunnelUp como fuente principal.
+1. Extender role-gating a APIs de Nancy Copilot antes de conectarlo a datos internos mas sensibles.
+2. Agregar auditoria central para Copilot, Drive, Sheets, FunnelUp, Ops y Voice.
+3. Implementar masking centralizado para datos Nivel 2, 3 y 4.
+4. Construir ficha cliente normalizada usando FunnelUp como fuente principal y cruzando datos permitidos de Drive, Sheets y Supabase.
+5. Reducir gradualmente el uso de service role en endpoints consumidos por frontend.
 6. Mantener Copilot/Ops inicialmente read-only hasta que existan permisos, validacion y auditoria.
+7. Documentar workflows n8n existentes.
+8. Validar viabilidad tecnica y autorizada de SmartCredit.
 
 ## Estado de Seguridad
 
-Monitor ahora valida usuario autenticado y rol interno antes de consultar datos con service role server-side. Copilot valida usuario autenticado para historial, pero aun necesita role-gating y auditoria antes de ampliar datos internos reales. Ver `docs/SECURITY_NOTES.md`.
+Monitor valida usuario autenticado y rol interno antes de consultar datos con service role server-side. La migracion de roles internos y auditoria minima ya fue completada. Copilot valida usuario autenticado para historial, pero aun necesita role-gating y auditoria antes de ampliar datos internos reales. Ver `docs/SECURITY_NOTES.md`.
 
 ## Notas de Entrega
 

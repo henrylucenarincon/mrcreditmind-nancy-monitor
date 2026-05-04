@@ -104,6 +104,10 @@ Estado: Aprobada
 
 Contexto: Hostinger/HCDN llego a servir HTML viejo de rutas internas con referencias a assets antiguos de Next.js, causando 404 de CSS/JS y pantallas sin estilos.
 
-Decision: Las rutas `/`, `/login`, `/select`, `/copilot` y futuras rutas `/ops` deben renderizarse como dinamicas con `dynamic = "force-dynamic"` y `revalidate = 0`. Cuando una pagina necesite interactividad cliente, el JSX visual vive en un componente cliente y `page.tsx` queda como wrapper server. Ademas, las rutas internas emiten `Cache-Control: private, no-store, no-cache, max-age=0, must-revalidate`, `CDN-Cache-Control: no-store` y `Surrogate-Control: no-store`.
+Decision: Las rutas `/`, `/login`, `/select`, `/copilot` y futuras rutas `/ops` se renderizan como dinamicas con `dynamic = "force-dynamic"` y `revalidate = 0`. Cuando una pagina necesita interactividad cliente, el JSX visual vive en un componente cliente y `page.tsx` queda como wrapper server. Ademas, las rutas internas emiten `Cache-Control: private, no-store, no-cache, max-age=0, must-revalidate`, `CDN-Cache-Control: no-store` y `Surrogate-Control: no-store`.
 
 Consecuencias: El CDN no debe almacenar HTML del panel que pueda apuntar a assets obsoletos. Los assets versionados de `/_next/static/*` conservan el cache largo immutable administrado por Next.js y no reciben reglas `no-store`. Toda nueva ruta interna debe heredar o declarar esta politica antes de desplegarse.
+
+Validacion: Produccion en Hostinger fue validada el 2026-05-04 para `/`, `/login`, `/select` y `/copilot`; las rutas cargan correctamente y el problema de HTML viejo cacheado quedo corregido.
+
+Operacion: Hostinger/HCDN requiere purga de HTML interno tras deploys importantes, especialmente cuando cambia el build de Next.js, la configuracion de cache o el runtime standalone. No purgar agresivamente `/_next/static/*` salvo incidente especifico, porque los assets versionados deben conservar cache immutable.

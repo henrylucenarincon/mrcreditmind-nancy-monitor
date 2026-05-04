@@ -4,6 +4,8 @@ Ultima actualizacion: 2026-05-04
 
 ## Fase 0: Documentacion
 
+Estado: Completada
+
 Objetivo: dejar el contexto del proyecto dentro del repo para que futuras sesiones de Codex/ChatGPT puedan retomar sin reexplicar todo.
 
 Entregables:
@@ -21,6 +23,8 @@ Criterio de salida:
 
 ## Fase 1: Seguridad y Acceso
 
+Estado: Completada para Nancy Monitor
+
 Objetivo: preparar el panel para manejar datos internos y sensibles sin exposicion accidental.
 
 Entregables:
@@ -30,7 +34,8 @@ Entregables:
 - Politicas RLS revisadas.
 - Auditoria minima para accesos sensibles.
 - Matcher/rutas privadas actualizado.
-- Reglas de masking para datos de Nivel 2, 3 y 4.
+- Migracion Supabase de roles internos y auditoria.
+- Cache hardening de rutas internas del panel.
 
 Criterio de salida:
 
@@ -38,18 +43,25 @@ Criterio de salida:
 - Usuarios sin rol suficiente reciben 403.
 - Accesos sensibles quedan registrados.
 - Las APIs no dependen de service role sin controles explicitos.
+- El HTML interno no queda cacheado agresivamente por Hostinger/HCDN.
 
 Estado 2026-05-04:
 
-- Base implementada para Monitor: helpers de auth/roles, `internal_user_profiles`, `security_audit_log`, proxy de rutas internas y auditoria minima.
-- Pendiente: aplicar migracion en Supabase, provisionar perfiles internos, extender role-gating/auditoria a Copilot y reducir service role con RLS mas granular.
+- Completado y validado en produccion para Monitor: helpers de auth/roles, `internal_user_profiles`, `security_audit_log`, migracion Supabase, proxy de rutas internas, auditoria minima y cache hardening.
+- Validado en Hostinger/HCDN: `/`, `/login`, `/select` y `/copilot` cargan correctamente; rutas internas son dinamicas/no-store; `/_next/static/*` conserva cache immutable.
+- Pendiente fuera de Fase 1: extender role-gating/auditoria a Copilot, implementar masking centralizado y reducir service role con RLS mas granular.
 
-## Fase 2: Copilot Real con Datos Internos
+## Fase 2: Nancy Copilot Seguro
 
-Objetivo: convertir Nancy Copilot en una herramienta util para consultar clientes, documentos, funding y operaciones.
+Estado: Proxima fase
+
+Objetivo: convertir Nancy Copilot en una herramienta util y segura para consultar clientes, documentos, funding y operaciones.
 
 Entregables:
 
+- Role-gating en APIs de Copilot.
+- Auditoria de consultas y acciones de Copilot.
+- Masking centralizado para datos Nivel 2, 3 y 4.
 - Perfil normalizado de cliente.
 - Herramientas confiables para FunnelUp, Google Drive y Google Sheets.
 - Respuestas con fuentes, confianza, faltantes y proximo paso.
@@ -58,8 +70,9 @@ Entregables:
 
 Criterio de salida:
 
-- Copilot responde preguntas reales del equipo usando datos internos permitidos.
+- Copilot responde preguntas reales del equipo usando datos internos permitidos y auditados.
 - Las respuestas no inventan datos y citan la fuente interna usada.
+- Los datos sensibles se enmascaran segun nivel y rol.
 
 ## Fase 3: Nancy Ops
 
