@@ -8,6 +8,7 @@ Internal context for Nancy lives in `docs/`:
 - [Project Status](docs/PROJECT_STATUS.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Technical Decisions](docs/DECISIONS.md)
+- [Security Notes](docs/SECURITY_NOTES.md)
 - [Codex Prompts](docs/CODEX_PROMPTS.md)
 
 ## Getting Started

@@ -39,6 +39,11 @@ Criterio de salida:
 - Accesos sensibles quedan registrados.
 - Las APIs no dependen de service role sin controles explicitos.
 
+Estado 2026-05-04:
+
+- Base implementada para Monitor: helpers de auth/roles, `internal_user_profiles`, `security_audit_log`, proxy de rutas internas y auditoria minima.
+- Pendiente: aplicar migracion en Supabase, provisionar perfiles internos, extender role-gating/auditoria a Copilot y reducir service role con RLS mas granular.
+
 ## Fase 2: Copilot Real con Datos Internos
 
 Objetivo: convertir Nancy Copilot en una herramienta util para consultar clientes, documentos, funding y operaciones.

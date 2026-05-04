@@ -1,0 +1,807 @@
+diff --git a/README.md b/README.md
+index 1310960..8141f47 100644
+--- a/README.md
++++ b/README.md
+@@ -8,6 +8,7 @@ Internal context for Nancy lives in `docs/`:
+ - [Project Status](docs/PROJECT_STATUS.md)
+ - [Roadmap](docs/ROADMAP.md)
+ - [Technical Decisions](docs/DECISIONS.md)
++- [Security Notes](docs/SECURITY_NOTES.md)
+ - [Codex Prompts](docs/CODEX_PROMPTS.md)
+ 
+ ## Getting Started
+diff --git a/app/api/conversations/[conversationId]/route.ts b/app/api/conversations/[conversationId]/route.ts
+index 9ad9c5c..514c4ea 100644
+--- a/app/api/conversations/[conversationId]/route.ts
++++ b/app/api/conversations/[conversationId]/route.ts
+@@ -1,4 +1,15 @@
+ import { NextRequest, NextResponse } from "next/server";
++import {
++  forbiddenResponse,
++  isForbiddenError,
++  requireRole,
++} from "@/lib/auth/require-role";
++import {
++  isAuthRequiredError,
++  unauthorizedResponse,
++} from "@/lib/auth/require-user";
++import { CONVERSATION_READER_ROLES } from "@/lib/auth/roles";
++import { logSecurityEvent } from "@/lib/security/audit-log";
+ import { getSupabaseServer } from "@/lib/supabase-server";
+ 
+ type Params = Promise<{ conversationId: string }>;
+@@ -9,6 +20,7 @@ export async function GET(
+ ) {
+   try {
+     const { conversationId } = await context.params;
++    const auth = await requireRole(CONVERSATION_READER_ROLES);
+     const supabase = getSupabaseServer();
+ 
+     const { data, error } = await supabase
+@@ -25,12 +37,47 @@ export async function GET(
+       );
+     }
+ 
++    await logSecurityEvent({
++      actorUserId: auth.user.id,
++      actorEmail: auth.profile.email ?? auth.email,
++      action: "conversations.messages.read",
++      resourceType: "conversation",
++      resourceId: conversationId,
++      metadata: {
++        messageCount: data?.length ?? 0,
++        role: auth.role,
++      },
++    });
++
+     return NextResponse.json({ messages: data ?? [] });
+   } catch (error) {
++    if (isAuthRequiredError(error)) {
++      return unauthorizedResponse();
++    }
++
++    if (isForbiddenError(error)) {
++      const { conversationId } = await context.params;
++
++      await logSecurityEvent({
++        actorUserId: error.actorUserId,
++        actorEmail: error.actorEmail,
++        action: "internal_api.access_denied",
++        resourceType: "api_route",
++        resourceId: `/api/conversations/${conversationId}`,
++        metadata: {
++          reason: error.reason,
++          role: error.role,
++          requiredRoles: CONVERSATION_READER_ROLES,
++        },
++      });
++
++      return forbiddenResponse();
++    }
++
+     console.error("Server error /api/conversations/[conversationId]:", error);
+     return NextResponse.json(
+       { error: "Error interno del servidor." },
+       { status: 500 }
+     );
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/app/api/conversations/route.ts b/app/api/conversations/route.ts
+index 55d658c..2ab4e26 100644
+--- a/app/api/conversations/route.ts
++++ b/app/api/conversations/route.ts
+@@ -1,8 +1,20 @@
+ import { NextResponse } from "next/server";
++import {
++  forbiddenResponse,
++  isForbiddenError,
++  requireRole,
++} from "@/lib/auth/require-role";
++import {
++  isAuthRequiredError,
++  unauthorizedResponse,
++} from "@/lib/auth/require-user";
++import { CONVERSATION_READER_ROLES } from "@/lib/auth/roles";
++import { logSecurityEvent } from "@/lib/security/audit-log";
+ import { getSupabaseServer } from "@/lib/supabase-server";
+ 
+ export async function GET() {
+   try {
++    const auth = await requireRole(CONVERSATION_READER_ROLES);
+     const supabase = getSupabaseServer();
+ 
+     const { data, error } = await supabase
+@@ -19,12 +31,45 @@ export async function GET() {
+       );
+     }
+ 
++    await logSecurityEvent({
++      actorUserId: auth.user.id,
++      actorEmail: auth.profile.email ?? auth.email,
++      action: "conversations.list.read",
++      resourceType: "conversation",
++      metadata: {
++        limit: 100,
++        resultCount: data?.length ?? 0,
++        role: auth.role,
++      },
++    });
++
+     return NextResponse.json({ conversations: data ?? [] });
+   } catch (error) {
++    if (isAuthRequiredError(error)) {
++      return unauthorizedResponse();
++    }
++
++    if (isForbiddenError(error)) {
++      await logSecurityEvent({
++        actorUserId: error.actorUserId,
++        actorEmail: error.actorEmail,
++        action: "internal_api.access_denied",
++        resourceType: "api_route",
++        resourceId: "/api/conversations",
++        metadata: {
++          reason: error.reason,
++          role: error.role,
++          requiredRoles: CONVERSATION_READER_ROLES,
++        },
++      });
++
++      return forbiddenResponse();
++    }
++
+     console.error("Server error /api/conversations:", error);
+     return NextResponse.json(
+       { error: "Error interno del servidor." },
+       { status: 500 }
+     );
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/docs/DECISIONS.md b/docs/DECISIONS.md
+index c547ce8..550a55b 100644
+--- a/docs/DECISIONS.md
++++ b/docs/DECISIONS.md
+@@ -67,3 +67,33 @@ Contexto: Los documentos internos seran usados como contexto en nuevas sesiones.
+ Decision: La documentacion puede describir variables, fuentes y reglas, pero no debe contener tokens, claves, contrasenas, SSN completos, credenciales de SmartCredit ni datos reales de clientes.
+ 
+ Consecuencias: Los ejemplos deben ser anonimos o placeholders. Si se necesita investigar un dato sensible, hacerlo desde codigo/infra autorizada y no copiarlo a Markdown.
++
++## 2026-05-04 - Roles internos minimos para APIs sensibles
++
++Estado: Aprobada
++
++Contexto: Nancy Monitor expone conversaciones internas y futuras fases agregaran documentos, funding, Ops y Voice.
++
++Decision: Crear `internal_user_profiles` con roles `admin`, `manager`, `ops`, `sales` y `readonly`, y usar helpers server-side `requireUser` y `requireRole` en APIs internas.
++
++Consecuencias: Un usuario autenticado sin perfil interno activo recibe 403 en APIs protegidas por rol. Las altas y cambios de rol deben gestionarse desde Supabase/admin tooling, no desde el cliente.
++
++## 2026-05-04 - Service role solo despues de autorizacion
++
++Estado: Aprobada
++
++Contexto: Monitor usa `SUPABASE_SERVICE_ROLE_KEY` server-side para leer `conversations_summary` y `conversations_log`.
++
++Decision: Mantener service role temporalmente para no romper el MVP, pero solo despues de validar sesion y rol interno en cada endpoint consumido por frontend.
++
++Consecuencias: El riesgo baja sin forzar una refactorizacion grande de RLS. La deuda pendiente es migrar lecturas a cliente SSR/RLS cuando el modelo de permisos este completo.
++
++## 2026-05-04 - Auditoria minima para Monitor
++
++Estado: Aprobada
++
++Contexto: Las conversaciones son informacion interna sensible y deben dejar trazabilidad.
++
++Decision: Crear `security_audit_log` y registrar lectura de lista de conversaciones, lectura de mensajes por conversacion y denegaciones 403 en APIs internas.
++
++Consecuencias: La auditoria no debe guardar contenido completo de mensajes ni payloads sensibles. La cobertura debe ampliarse a Copilot, Ops, Voice y conectores en fases siguientes.
+diff --git a/docs/PROJECT_STATUS.md b/docs/PROJECT_STATUS.md
+index 35ee8f9..1430c8c 100644
+--- a/docs/PROJECT_STATUS.md
++++ b/docs/PROJECT_STATUS.md
+@@ -18,6 +18,10 @@ El repo actual es una aplicacion Next.js/TypeScript llamada `nancy-monitor`, con
+ - Nancy Copilot tiene `/api/copilot/chat` con OpenAI y fallback local.
+ - Historial de Copilot por usuario en `nancy_copilot_conversations` y `nancy_copilot_messages`.
+ - RLS para historial de Copilot por `user_id`.
++- Helpers server-side para usuario autenticado, rol interno y respuestas 401/403.
++- Modelo minimo `internal_user_profiles` con roles `admin`, `manager`, `ops`, `sales` y `readonly`.
++- Tabla `security_audit_log` para auditoria minima.
++- APIs de Nancy Monitor protegidas por sesion y rol antes de usar service role server-side.
+ - Clientes/conectores para FunnelUp, Google Drive y Google Sheets.
+ - Variables de entorno de ejemplo para Supabase, OpenAI, FunnelUp, Drive y Sheets.
+ - Assets de marca de Mr.CREDITMIND/Nancy.
+@@ -32,12 +36,10 @@ Fuera del repo ya existe:
+ 
+ ## Que Esta Pendiente
+ 
+-- Endurecer autenticacion y autorizacion de APIs internas.
+-- Definir roles internos: admin, manager, ops, sales, readonly y roles especiales.
+-- Crear tabla/perfil de usuarios internos.
+-- Agregar auditoria central para accesos y cambios sensibles.
+-- Revisar el uso de service role en endpoints consumidos por frontend.
+-- Ampliar el `proxy`/middleware para cubrir rutas privadas nuevas.
++- Aplicar la migracion de seguridad en Supabase y crear perfiles internos activos para usuarios autorizados.
++- Extender role-gating a Copilot antes de conectarlo a datos internos mas sensibles.
++- Agregar auditoria central para Copilot, Drive, Sheets, FunnelUp, Ops y Voice.
++- Reducir gradualmente el uso de service role en endpoints consumidos por frontend.
+ - Normalizar datos de cliente entre FunnelUp, Drive, Sheets y Supabase.
+ - Convertir Copilot en asistente real con fuentes internas confiables y respuestas con evidencias.
+ - Crear Nancy Ops como seccion propia.
+@@ -48,17 +50,16 @@ Fuera del repo ya existe:
+ 
+ ## Prioridades Inmediatas
+ 
+-1. Mantener esta documentacion viva en `docs/`.
+-2. Proteger APIs internas de Monitor con sesion y rol antes de exponer mas datos.
+-3. Crear modelo minimo de roles/permisos internos.
+-4. Crear auditoria minima para consultas sensibles.
+-5. Revisar rutas privadas y matcher de `proxy.ts`.
+-6. Normalizar perfil de cliente para Copilot usando FunnelUp como fuente principal.
+-7. Mantener Copilot/Ops inicialmente read-only hasta que existan permisos, validacion y auditoria.
++1. Aplicar `supabase/migrations/20260504_02_security_roles_audit.sql`.
++2. Crear filas activas en `internal_user_profiles` para usuarios internos autorizados.
++3. Validar en entorno desplegado que Monitor devuelva 401 sin sesion y 403 sin perfil/rol.
++4. Extender roles/auditoria a Copilot antes de ampliar fuentes internas sensibles.
++5. Normalizar perfil de cliente para Copilot usando FunnelUp como fuente principal.
++6. Mantener Copilot/Ops inicialmente read-only hasta que existan permisos, validacion y auditoria.
+ 
+ ## Estado de Seguridad
+ 
+-Copilot ya valida usuario autenticado para historial. Monitor depende de endpoints que consultan Supabase con service role; antes de crecer el alcance, esos endpoints deben validar usuario/rol y reducir exposicion de datos segun permisos.
++Monitor ahora valida usuario autenticado y rol interno antes de consultar datos con service role server-side. Copilot valida usuario autenticado para historial, pero aun necesita role-gating y auditoria antes de ampliar datos internos reales. Ver `docs/SECURITY_NOTES.md`.
+ 
+ ## Notas de Entrega
+ 
+diff --git a/docs/ROADMAP.md b/docs/ROADMAP.md
+index a866194..ef4a544 100644
+--- a/docs/ROADMAP.md
++++ b/docs/ROADMAP.md
+@@ -39,6 +39,11 @@ Criterio de salida:
+ - Accesos sensibles quedan registrados.
+ - Las APIs no dependen de service role sin controles explicitos.
+ 
++Estado 2026-05-04:
++
++- Base implementada para Monitor: helpers de auth/roles, `internal_user_profiles`, `security_audit_log`, proxy de rutas internas y auditoria minima.
++- Pendiente: aplicar migracion en Supabase, provisionar perfiles internos, extender role-gating/auditoria a Copilot y reducir service role con RLS mas granular.
++
+ ## Fase 2: Copilot Real con Datos Internos
+ 
+ Objetivo: convertir Nancy Copilot en una herramienta util para consultar clientes, documentos, funding y operaciones.
+diff --git a/docs/SECURITY_NOTES.md b/docs/SECURITY_NOTES.md
+new file mode 100644
+index 0000000..43d4e62
+--- /dev/null
++++ b/docs/SECURITY_NOTES.md
+@@ -0,0 +1,163 @@
++# Nancy Security Notes
++
++Ultima actualizacion: 2026-05-04
++
++Este documento registra el audit de rutas y el estado de seguridad base del panel Nancy. No incluir secretos, tokens, contrasenas, SSN completos ni datos reales de clientes.
++
++## Resumen de Fase 1
++
++Se agrego una capa minima y reutilizable de seguridad:
++
++- `lib/auth/require-user.ts`: obtiene el usuario autenticado y permite responder 401.
++- `lib/auth/require-role.ts`: valida perfil interno activo y rol permitido, y permite responder 403.
++- `lib/auth/roles.ts`: define roles internos permitidos.
++- `lib/security/audit-log.ts`: registra eventos de seguridad server-side sin guardar contenido completo de mensajes.
++- `supabase/migrations/20260504_02_security_roles_audit.sql`: crea perfiles internos y auditoria minima.
++
++## Rutas del Panel
++
++Rutas protegidas por `proxy.ts`:
++
++- `/`
++- `/select`
++- `/copilot`
++- `/copilot/:path*`
++- `/ops`
++- `/ops/:path*`
++
++Rutas publicas:
++
++- `/login`
++- `/auth/confirm`, callback de Supabase Auth.
++
++Notas:
++
++- `/ops` aun no existe, pero queda cubierta para futuras rutas internas.
++- Las rutas API devuelven JSON y se protegen dentro de cada route handler cuando corresponde.
++
++## Audit de `app/api/**`
++
++| Endpoint | Estado | Proteccion actual | Notas |
++| --- | --- | --- | --- |
++| `GET /api/conversations` | Interno | `requireRole(CONVERSATION_READER_ROLES)` | Lee resumenes de Monitor. Registra `conversations.list.read`. |
++| `GET /api/conversations/[conversationId]` | Interno | `requireRole(CONVERSATION_READER_ROLES)` | Lee mensajes de una conversacion. Registra `conversations.messages.read`. |
++| `POST /api/copilot/chat` | Interno | Usuario autenticado via historial Copilot | Pendiente role-gating antes de ampliar datos internos reales. |
++| `GET /api/copilot/conversations` | Interno | Usuario autenticado y RLS por `user_id` | Historial propio del usuario. |
++| `POST /api/copilot/conversations` | Interno | Usuario autenticado y RLS por `user_id` | Crea historial propio del usuario. |
++| `GET /api/copilot/conversations/[conversationId]/messages` | Interno | Usuario autenticado y RLS por `user_id` | Mensajes propios del usuario. |
++| `POST /api/auth/logout` | Sesion/auth | Cliente SSR Supabase | Cierra sesion; no expone datos internos. |
++
++## Roles Internos
++
++Roles iniciales:
++
++- `admin`
++- `manager`
++- `ops`
++- `sales`
++- `readonly`
++
++Roles permitidos para leer conversaciones de Monitor:
++
++- `admin`
++- `manager`
++- `ops`
++- `sales`
++- `readonly`
++
++Regla operativa: un usuario autenticado sin fila activa en `internal_user_profiles` recibe 403 en APIs internas protegidas por rol.
++
++## Modelo Supabase Agregado
++
++Tabla `internal_user_profiles`:
++
++- `id uuid primary key references auth.users(id)`
++- `email text`
++- `full_name text`
++- `role text`
++- `is_active boolean`
++- `created_at timestamptz`
++- `updated_at timestamptz`
++
++RLS:
++
++- Usuarios autenticados pueden leer su propio perfil.
++- Usuarios con rol `admin` activo pueden leer perfiles internos mediante funcion `public.is_internal_admin()`.
++- No se agregaron politicas de escritura desde cliente en esta fase.
++
++Tabla `security_audit_log`:
++
++- `id uuid primary key`
++- `actor_user_id uuid`
++- `actor_email text`
++- `action text`
++- `resource_type text`
++- `resource_id text`
++- `metadata jsonb`
++- `created_at timestamptz`
++
++RLS:
++
++- RLS queda habilitado.
++- No hay politicas directas para clientes en esta fase.
++- El helper server-side inserta eventos con service role.
++
++## Service Role
++
++`SUPABASE_SERVICE_ROLE_KEY` sigue usandose server-side en:
++
++- `lib/supabase-server.ts` con `getSupabaseServer()`.
++- `app/api/conversations/route.ts`, despues de validar usuario y rol, para mantener lectura del MVP de Monitor sobre `conversations_summary`.
++- `app/api/conversations/[conversationId]/route.ts`, despues de validar usuario y rol, para mantener lectura del MVP de Monitor sobre `conversations_log`.
++- `lib/security/audit-log.ts`, para insertar eventos en `security_audit_log` sin exponer politicas de escritura al cliente.
++
++Motivo: evitar una refactorizacion grande de Supabase/RLS en el MVP. La regla actual es validar `requireUser`/`requireRole` antes de cualquier consulta con service role en endpoints consumidos por frontend.
++
++## Auditoria Minima
++
++Eventos registrados:
++
++- `conversations.list.read`
++- `conversations.messages.read`
++- `internal_api.access_denied`
++
++Metadata permitida:
++
++- Conteos, limites, rol, motivo de denegacion y `conversationId`.
++- No guardar contenido completo de mensajes.
++- No guardar documentos, SSN, credenciales, tokens ni payloads completos de clientes.
++
++## Aplicacion de Migracion
++
++Aplicar la migracion:
++
++```bash
++supabase db push
++```
++
++O ejecutar el SQL de `supabase/migrations/20260504_02_security_roles_audit.sql` en el editor SQL de Supabase.
++
++Despues de aplicar la migracion, crear perfiles internos para los usuarios autorizados. Ejemplo con placeholder:
++
++```sql
++insert into public.internal_user_profiles (id, email, full_name, role, is_active)
++select id, email, raw_user_meta_data->>'full_name', 'admin', true
++from auth.users
++where email = 'admin@example.com'
++on conflict (id) do update
++set role = excluded.role,
++    email = excluded.email,
++    full_name = excluded.full_name,
++    is_active = excluded.is_active,
++    updated_at = now();
++```
++
++Sin una fila activa en `internal_user_profiles`, el usuario autenticado no podra leer las APIs protegidas de Monitor.
++
++## Riesgos Pendientes
++
++- Copilot aun no esta role-gated; hoy valida usuario autenticado para historial, pero debe pasar por roles antes de conectarse a datos internos mas sensibles.
++- Monitor sigue usando service role server-side despues de autorizacion; se debe migrar gradualmente a lecturas con cliente SSR/RLS cuando el contrato de permisos este completo.
++- Falta auditoria para Copilot, Drive, Sheets, FunnelUp y futuras rutas Ops/Voice.
++- Falta masking centralizado para datos Nivel 2, 3 y 4.
++- Falta proceso administrativo formal para alta/baja/cambio de roles internos.
+diff --git a/lib/auth/require-role.ts b/lib/auth/require-role.ts
+new file mode 100644
+index 0000000..3fae6b0
+--- /dev/null
++++ b/lib/auth/require-role.ts
+@@ -0,0 +1,122 @@
++import { NextResponse } from "next/server";
++import { requireUser, type AuthenticatedUserContext } from "./require-user";
++import { isInternalRole, type InternalRole } from "./roles";
++
++export type InternalUserProfile = {
++  id: string;
++  email: string | null;
++  full_name: string | null;
++  role: InternalRole;
++  is_active: boolean;
++};
++
++export type AuthorizedInternalUserContext = AuthenticatedUserContext & {
++  profile: InternalUserProfile;
++  role: InternalRole;
++};
++
++type ForbiddenReason =
++  | "missing_internal_profile"
++  | "inactive_internal_profile"
++  | "invalid_internal_role"
++  | "role_not_allowed";
++
++export class ForbiddenError extends Error {
++  status = 403 as const;
++  actorUserId: string | null;
++  actorEmail: string | null;
++  role: string | null;
++  reason: ForbiddenReason;
++
++  constructor(input: {
++    actorUserId: string | null;
++    actorEmail: string | null;
++    role?: string | null;
++    reason: ForbiddenReason;
++  }) {
++    super("No autorizado.");
++    this.name = "ForbiddenError";
++    this.actorUserId = input.actorUserId;
++    this.actorEmail = input.actorEmail;
++    this.role = input.role ?? null;
++    this.reason = input.reason;
++  }
++}
++
++export function isForbiddenError(error: unknown): error is ForbiddenError {
++  return error instanceof ForbiddenError;
++}
++
++export function forbiddenResponse() {
++  return NextResponse.json({ error: "No autorizado." }, { status: 403 });
++}
++
++export async function requireRole(
++  allowedRoles: readonly InternalRole[]
++): Promise<AuthorizedInternalUserContext> {
++  const auth = await requireUser();
++  const { data, error } = await auth.supabase
++    .from("internal_user_profiles")
++    .select("id,email,full_name,role,is_active")
++    .eq("id", auth.user.id)
++    .maybeSingle();
++
++  if (error) {
++    throw error;
++  }
++
++  const profile = data as {
++    id: string;
++    email: string | null;
++    full_name: string | null;
++    role: string | null;
++    is_active: boolean | null;
++  } | null;
++
++  if (!profile) {
++    throw new ForbiddenError({
++      actorUserId: auth.user.id,
++      actorEmail: auth.email,
++      reason: "missing_internal_profile",
++    });
++  }
++
++  if (!profile.is_active) {
++    throw new ForbiddenError({
++      actorUserId: auth.user.id,
++      actorEmail: profile.email ?? auth.email,
++      role: profile.role,
++      reason: "inactive_internal_profile",
++    });
++  }
++
++  if (!isInternalRole(profile.role)) {
++    throw new ForbiddenError({
++      actorUserId: auth.user.id,
++      actorEmail: profile.email ?? auth.email,
++      role: profile.role,
++      reason: "invalid_internal_role",
++    });
++  }
++
++  if (!allowedRoles.includes(profile.role)) {
++    throw new ForbiddenError({
++      actorUserId: auth.user.id,
++      actorEmail: profile.email ?? auth.email,
++      role: profile.role,
++      reason: "role_not_allowed",
++    });
++  }
++
++  return {
++    ...auth,
++    profile: {
++      id: profile.id,
++      email: profile.email,
++      full_name: profile.full_name,
++      role: profile.role,
++      is_active: profile.is_active,
++    },
++    role: profile.role,
++  };
++}
+diff --git a/lib/auth/require-user.ts b/lib/auth/require-user.ts
+new file mode 100644
+index 0000000..af30845
+--- /dev/null
++++ b/lib/auth/require-user.ts
+@@ -0,0 +1,44 @@
++import { NextResponse } from "next/server";
++import type { User } from "@supabase/supabase-js";
++import { createClient } from "@/lib/supabase-server";
++
++export type AuthenticatedUserContext = {
++  supabase: Awaited<ReturnType<typeof createClient>>;
++  user: User;
++  email: string | null;
++};
++
++export class AuthRequiredError extends Error {
++  status = 401 as const;
++
++  constructor(message = "No autenticado.") {
++    super(message);
++    this.name = "AuthRequiredError";
++  }
++}
++
++export function isAuthRequiredError(error: unknown): error is AuthRequiredError {
++  return error instanceof AuthRequiredError;
++}
++
++export function unauthorizedResponse() {
++  return NextResponse.json({ error: "No autenticado." }, { status: 401 });
++}
++
++export async function requireUser(): Promise<AuthenticatedUserContext> {
++  const supabase = await createClient();
++  const {
++    data: { user },
++    error,
++  } = await supabase.auth.getUser();
++
++  if (error || !user) {
++    throw new AuthRequiredError();
++  }
++
++  return {
++    supabase,
++    user,
++    email: user.email ?? null,
++  };
++}
+diff --git a/lib/auth/roles.ts b/lib/auth/roles.ts
+new file mode 100644
+index 0000000..ec5dc31
+--- /dev/null
++++ b/lib/auth/roles.ts
+@@ -0,0 +1,18 @@
++export const INTERNAL_ROLES = [
++  "admin",
++  "manager",
++  "ops",
++  "sales",
++  "readonly",
++] as const;
++
++export type InternalRole = (typeof INTERNAL_ROLES)[number];
++
++export const CONVERSATION_READER_ROLES: readonly InternalRole[] = INTERNAL_ROLES;
++
++export function isInternalRole(value: unknown): value is InternalRole {
++  return (
++    typeof value === "string" &&
++    INTERNAL_ROLES.includes(value as InternalRole)
++  );
++}
+diff --git a/lib/security/audit-log.ts b/lib/security/audit-log.ts
+new file mode 100644
+index 0000000..5acb61e
+--- /dev/null
++++ b/lib/security/audit-log.ts
+@@ -0,0 +1,35 @@
++import { getSupabaseServer } from "@/lib/supabase-server";
++
++type SecurityAuditMetadata = Record<string, unknown>;
++
++export type LogSecurityEventInput = {
++  actorUserId?: string | null;
++  actorEmail?: string | null;
++  action: string;
++  resourceType: string;
++  resourceId?: string | null;
++  metadata?: SecurityAuditMetadata;
++};
++
++export async function logSecurityEvent(input: LogSecurityEventInput) {
++  try {
++    const supabase = getSupabaseServer();
++    const { error } = await supabase.from("security_audit_log").insert({
++      actor_user_id: input.actorUserId ?? null,
++      actor_email: input.actorEmail ?? null,
++      action: input.action,
++      resource_type: input.resourceType,
++      resource_id: input.resourceId ?? null,
++      metadata: input.metadata ?? {},
++    });
++
++    if (error) {
++      console.error("No pudimos registrar security_audit_log:", {
++        code: error.code,
++        message: error.message,
++      });
++    }
++  } catch (error) {
++    console.error("No pudimos registrar evento de seguridad:", error);
++  }
++}
+diff --git a/proxy.ts b/proxy.ts
+index 7eb4d85..a8d7f06 100644
+--- a/proxy.ts
++++ b/proxy.ts
+@@ -6,5 +6,5 @@ export async function proxy(request: NextRequest) {
+ }
+ 
+ export const config = {
+-  matcher: ["/", "/login", "/copilot"],
++  matcher: ["/", "/login", "/select", "/copilot", "/copilot/:path*", "/ops", "/ops/:path*"],
+ };
+diff --git a/supabase/migrations/20260504_02_security_roles_audit.sql b/supabase/migrations/20260504_02_security_roles_audit.sql
+new file mode 100644
+index 0000000..3f5ed85
+--- /dev/null
++++ b/supabase/migrations/20260504_02_security_roles_audit.sql
+@@ -0,0 +1,104 @@
++create extension if not exists pgcrypto;
++
++create table if not exists public.internal_user_profiles (
++  id uuid primary key references auth.users(id) on delete cascade,
++  email text,
++  full_name text,
++  role text not null default 'readonly',
++  is_active boolean not null default true,
++  created_at timestamptz not null default now(),
++  updated_at timestamptz not null default now()
++);
++
++do $$
++begin
++  if not exists (
++    select 1
++    from pg_constraint
++    where conname = 'internal_user_profiles_role_check'
++      and conrelid = 'public.internal_user_profiles'::regclass
++  ) then
++    alter table public.internal_user_profiles
++      add constraint internal_user_profiles_role_check
++      check (role in ('admin', 'manager', 'ops', 'sales', 'readonly'));
++  end if;
++end $$;
++
++create index if not exists internal_user_profiles_role_active_idx
++  on public.internal_user_profiles(role, is_active);
++
++create or replace function public.update_internal_user_profiles_updated_at()
++returns trigger
++language plpgsql
++as $$
++begin
++  new.updated_at = now();
++  return new;
++end;
++$$;
++
++drop trigger if exists set_internal_user_profiles_updated_at
++  on public.internal_user_profiles;
++
++create trigger set_internal_user_profiles_updated_at
++  before update on public.internal_user_profiles
++  for each row
++  execute function public.update_internal_user_profiles_updated_at();
++
++alter table public.internal_user_profiles enable row level security;
++
++create or replace function public.is_internal_admin()
++returns boolean
++language sql
++security definer
++set search_path = public
++stable
++as $$
++  select exists (
++    select 1
++    from public.internal_user_profiles
++    where id = auth.uid()
++      and role = 'admin'
++      and is_active = true
++  );
++$$;
++
++revoke all on function public.is_internal_admin() from public;
++grant execute on function public.is_internal_admin() to authenticated;
++
++drop policy if exists "Internal user profiles select own or admin"
++  on public.internal_user_profiles;
++
++create policy "Internal user profiles select own or admin"
++  on public.internal_user_profiles
++  for select
++  to authenticated
++  using (
++    auth.uid() = id
++    or public.is_internal_admin()
++  );
++
++create table if not exists public.security_audit_log (
++  id uuid primary key default gen_random_uuid(),
++  actor_user_id uuid references auth.users(id) on delete set null,
++  actor_email text,
++  action text not null,
++  resource_type text not null,
++  resource_id text,
++  metadata jsonb not null default '{}'::jsonb,
++  created_at timestamptz not null default now()
++);
++
++create index if not exists security_audit_log_actor_created_idx
++  on public.security_audit_log(actor_user_id, created_at desc);
++
++create index if not exists security_audit_log_action_created_idx
++  on public.security_audit_log(action, created_at desc);
++
++alter table public.security_audit_log enable row level security;
++
++comment on table public.internal_user_profiles is
++  'Internal Nancy user roles. Managed server-side/admin-side only.';
++
++comment on table public.security_audit_log is
++  'Append-only security audit events. No direct client policies in the base hardening phase.';

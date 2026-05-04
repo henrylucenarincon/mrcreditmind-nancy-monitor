@@ -67,3 +67,33 @@ Contexto: Los documentos internos seran usados como contexto en nuevas sesiones.
 Decision: La documentacion puede describir variables, fuentes y reglas, pero no debe contener tokens, claves, contrasenas, SSN completos, credenciales de SmartCredit ni datos reales de clientes.
 
 Consecuencias: Los ejemplos deben ser anonimos o placeholders. Si se necesita investigar un dato sensible, hacerlo desde codigo/infra autorizada y no copiarlo a Markdown.
+
+## 2026-05-04 - Roles internos minimos para APIs sensibles
+
+Estado: Aprobada
+
+Contexto: Nancy Monitor expone conversaciones internas y futuras fases agregaran documentos, funding, Ops y Voice.
+
+Decision: Crear `internal_user_profiles` con roles `admin`, `manager`, `ops`, `sales` y `readonly`, y usar helpers server-side `requireUser` y `requireRole` en APIs internas.
+
+Consecuencias: Un usuario autenticado sin perfil interno activo recibe 403 en APIs protegidas por rol. Las altas y cambios de rol deben gestionarse desde Supabase/admin tooling, no desde el cliente.
+
+## 2026-05-04 - Service role solo despues de autorizacion
+
+Estado: Aprobada
+
+Contexto: Monitor usa `SUPABASE_SERVICE_ROLE_KEY` server-side para leer `conversations_summary` y `conversations_log`.
+
+Decision: Mantener service role temporalmente para no romper el MVP, pero solo despues de validar sesion y rol interno en cada endpoint consumido por frontend.
+
+Consecuencias: El riesgo baja sin forzar una refactorizacion grande de RLS. La deuda pendiente es migrar lecturas a cliente SSR/RLS cuando el modelo de permisos este completo.
+
+## 2026-05-04 - Auditoria minima para Monitor
+
+Estado: Aprobada
+
+Contexto: Las conversaciones son informacion interna sensible y deben dejar trazabilidad.
+
+Decision: Crear `security_audit_log` y registrar lectura de lista de conversaciones, lectura de mensajes por conversacion y denegaciones 403 en APIs internas.
+
+Consecuencias: La auditoria no debe guardar contenido completo de mensajes ni payloads sensibles. La cobertura debe ampliarse a Copilot, Ops, Voice y conectores en fases siguientes.

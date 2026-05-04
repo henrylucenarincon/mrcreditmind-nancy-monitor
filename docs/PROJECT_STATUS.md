@@ -18,6 +18,10 @@ El repo actual es una aplicacion Next.js/TypeScript llamada `nancy-monitor`, con
 - Nancy Copilot tiene `/api/copilot/chat` con OpenAI y fallback local.
 - Historial de Copilot por usuario en `nancy_copilot_conversations` y `nancy_copilot_messages`.
 - RLS para historial de Copilot por `user_id`.
+- Helpers server-side para usuario autenticado, rol interno y respuestas 401/403.
+- Modelo minimo `internal_user_profiles` con roles `admin`, `manager`, `ops`, `sales` y `readonly`.
+- Tabla `security_audit_log` para auditoria minima.
+- APIs de Nancy Monitor protegidas por sesion y rol antes de usar service role server-side.
 - Clientes/conectores para FunnelUp, Google Drive y Google Sheets.
 - Variables de entorno de ejemplo para Supabase, OpenAI, FunnelUp, Drive y Sheets.
 - Assets de marca de Mr.CREDITMIND/Nancy.
@@ -32,12 +36,10 @@ Fuera del repo ya existe:
 
 ## Que Esta Pendiente
 
-- Endurecer autenticacion y autorizacion de APIs internas.
-- Definir roles internos: admin, manager, ops, sales, readonly y roles especiales.
-- Crear tabla/perfil de usuarios internos.
-- Agregar auditoria central para accesos y cambios sensibles.
-- Revisar el uso de service role en endpoints consumidos por frontend.
-- Ampliar el `proxy`/middleware para cubrir rutas privadas nuevas.
+- Aplicar la migracion de seguridad en Supabase y crear perfiles internos activos para usuarios autorizados.
+- Extender role-gating a Copilot antes de conectarlo a datos internos mas sensibles.
+- Agregar auditoria central para Copilot, Drive, Sheets, FunnelUp, Ops y Voice.
+- Reducir gradualmente el uso de service role en endpoints consumidos por frontend.
 - Normalizar datos de cliente entre FunnelUp, Drive, Sheets y Supabase.
 - Convertir Copilot en asistente real con fuentes internas confiables y respuestas con evidencias.
 - Crear Nancy Ops como seccion propia.
@@ -48,17 +50,16 @@ Fuera del repo ya existe:
 
 ## Prioridades Inmediatas
 
-1. Mantener esta documentacion viva en `docs/`.
-2. Proteger APIs internas de Monitor con sesion y rol antes de exponer mas datos.
-3. Crear modelo minimo de roles/permisos internos.
-4. Crear auditoria minima para consultas sensibles.
-5. Revisar rutas privadas y matcher de `proxy.ts`.
-6. Normalizar perfil de cliente para Copilot usando FunnelUp como fuente principal.
-7. Mantener Copilot/Ops inicialmente read-only hasta que existan permisos, validacion y auditoria.
+1. Aplicar `supabase/migrations/20260504_02_security_roles_audit.sql`.
+2. Crear filas activas en `internal_user_profiles` para usuarios internos autorizados.
+3. Validar en entorno desplegado que Monitor devuelva 401 sin sesion y 403 sin perfil/rol.
+4. Extender roles/auditoria a Copilot antes de ampliar fuentes internas sensibles.
+5. Normalizar perfil de cliente para Copilot usando FunnelUp como fuente principal.
+6. Mantener Copilot/Ops inicialmente read-only hasta que existan permisos, validacion y auditoria.
 
 ## Estado de Seguridad
 
-Copilot ya valida usuario autenticado para historial. Monitor depende de endpoints que consultan Supabase con service role; antes de crecer el alcance, esos endpoints deben validar usuario/rol y reducir exposicion de datos segun permisos.
+Monitor ahora valida usuario autenticado y rol interno antes de consultar datos con service role server-side. Copilot valida usuario autenticado para historial, pero aun necesita role-gating y auditoria antes de ampliar datos internos reales. Ver `docs/SECURITY_NOTES.md`.
 
 ## Notas de Entrega
 
