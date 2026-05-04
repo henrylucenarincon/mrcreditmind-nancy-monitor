@@ -4,7 +4,7 @@ Ultima actualizacion: 2026-05-04
 
 Este documento registra el audit de rutas y el estado de seguridad base del panel Nancy. No incluir secretos, tokens, contrasenas, SSN completos ni datos reales de clientes.
 
-## Resumen de Fase 1 y Fase 2.1
+## Resumen de Fase 1, Fase 2 y Fase 2.1
 
 Se agrego una capa minima y reutilizable de seguridad:
 
@@ -14,6 +14,9 @@ Se agrego una capa minima y reutilizable de seguridad:
 - `lib/security/audit-log.ts`: registra eventos de seguridad server-side sin guardar contenido completo de mensajes.
 - `supabase/migrations/20260504120000_security_roles_audit.sql`: crea perfiles internos y auditoria minima.
 - `lib/copilot/security.ts`: define roles permitidos para Copilot y helpers de auditoria sin guardar prompts ni respuestas completas.
+- `lib/security/data-sensitivity.ts`: define niveles y tipos para exposicion/masking.
+- `lib/security/sensitive-fields.ts`: clasifica campos comunes de Nancy por sensibilidad.
+- `lib/security/masking.ts`: enmascara valores, objetos, texto libre y metadata de auditoria.
 
 ## Rutas del Panel
 
@@ -143,6 +146,7 @@ Metadata permitida:
 - No guardar contenido completo de mensajes.
 - No guardar documentos, SSN, credenciales, tokens ni payloads completos de clientes.
 - No guardar prompts completos, respuestas completas del modelo ni URLs privadas completas si pueden contener informacion sensible.
+- `logSecurityEvent` aplica `sanitizeAuditMetadata` antes de insertar metadata en `security_audit_log`.
 
 ## Estado de Migracion
 
@@ -191,10 +195,56 @@ Reglas de auditoria para Copilot:
 - No guardar prompts completos, respuestas completas, documentos completos, SSN, passwords, tokens, credenciales, URLs privadas completas ni contenido completo de conversaciones.
 - `readonly` queda bloqueado hasta que existan permisos por dato, masking centralizado y politica de exposicion mas fina.
 
+## Sensibilidad y Masking
+
+Fase 2.1 agrega una capa central inicial para clasificar y enmascarar datos en Monitor, Copilot, Ops y Voice.
+
+Niveles:
+
+| Nivel | Uso inicial | Regla base |
+| --- | --- | --- |
+| `public_operational` | Nombre, etiquetas operativas no sensibles | Visible. |
+| `internal` | Email, telefono, contactId, servicio, etapa/pipeline | Visible para roles internos permitidos, con email/telefono parcialmente enmascarados. |
+| `sensitive` | Documentos faltantes, notas internas, contenido completo de chats, prompts/respuestas completas | Parcial o resumido segun rol/contexto; redacted en auditoria. |
+| `highly_sensitive` | URLs Drive, SSN, EIN, ID/passport, bank statements | Redacted por defecto; solo parcial para `admin`/`manager` con `allowHighlySensitive`. |
+| `secret` | SmartCredit credentials, API keys, tokens, passwords | Nunca mostrar valor completo. |
+
+Helpers:
+
+- `classifyField(fieldName)`: clasifica un campo por nombre.
+- `maskValue(value, level, options)`: enmascara un valor segun nivel, rol y contexto.
+- `maskObject(input, options)`: recorre objetos/arrays y aplica masking por campo.
+- `redactSecretsFromText(text)`: limpia texto libre antes de logs/auditoria.
+- `shouldExposeField(fieldName, role, context)`: decide exposicion inicial por rol.
+- `sanitizeAuditMetadata(metadata)`: prepara metadata segura para `security_audit_log`.
+
+Ejemplos de validacion manual:
+
+| Entrada | Salida esperada |
+| --- | --- |
+| `SSN 123-45-6789` | `***-**-6789` |
+| `cliente@email.com` | `c***@email.com` |
+| `+1 787 555 1234` | `********1234` |
+| URL de Google Drive | `[redacted:drive-url]` |
+| Password, API token o SmartCredit credential | `[redacted:secret]` |
+
+Reglas de rol iniciales:
+
+- `admin`: mayor acceso, pero secretos siempre redacted.
+- `manager`: similar a admin salvo secretos.
+- `ops`: puede ver `internal` y algunos `sensitive` con contexto explicito; no ve `highly_sensitive` completo.
+- `sales`: puede ver `internal` operativo; no ve `highly_sensitive` completo.
+- `readonly`: vista limitada; sigue bloqueado para Copilot APIs.
+
+Limitacion actual:
+
+- La sanitizacion ya protege auditoria y logs/errores internos principales.
+- El masking de outputs finales de Copilot se aplicara en la fase de ficha cliente real, cuando existan permisos por dato/fuente.
+
 ## Riesgos Pendientes
 
 - Copilot ya esta role-gated, pero aun necesita permisos por dato/fuente antes de ampliar datos internos reales.
 - Monitor sigue usando service role server-side despues de autorizacion; se debe migrar gradualmente a lecturas con cliente SSR/RLS cuando el contrato de permisos este completo.
 - La auditoria de Copilot es minima; falta auditoria extendida por tool, Drive, Sheets, FunnelUp y futuras rutas Ops/Voice.
-- Falta masking centralizado para datos Nivel 2, 3 y 4.
+- Falta aplicar masking a outputs finales de Copilot cuando exista ficha cliente real.
 - Falta proceso administrativo formal para alta/baja/cambio de roles internos.

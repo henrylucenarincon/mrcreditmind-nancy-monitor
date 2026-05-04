@@ -121,3 +121,13 @@ Contexto: Nancy Copilot puede resumir, cruzar o preparar informacion sensible de
 Decision: Proteger `app/api/copilot/**` con `requireRole(COPILOT_API_ROLES)` y permitir inicialmente solo `admin`, `manager`, `ops` y `sales`. El rol `readonly` recibe 403 en APIs de Copilot. `/copilot` sigue siendo ruta interna protegida por proxy, pero la autorizacion fina se aplica en cada API.
 
 Consecuencias: Copilot queda cerrado antes de ampliar herramientas con FunnelUp, Google Drive, Google Sheets o documentos sensibles. La UI debe manejar 403 sin romper la pantalla. Antes de habilitar `readonly` o permisos mas finos, se requiere masking centralizado, permisos por dato/fuente y auditoria extendida de tools.
+
+## 2026-05-04 - Metadata de auditoria se sanitiza centralmente
+
+Estado: Aprobada
+
+Contexto: Nancy va a consultar fuentes internas con datos de contacto, documentos, identidad, funding, prompts y respuestas de IA. `security_audit_log` debe conservar trazabilidad sin convertirse en un repositorio paralelo de informacion sensible.
+
+Decision: Crear una capa central en `lib/security/` para clasificar campos, enmascarar valores y sanitizar metadata antes de insertarla en `security_audit_log`. `logSecurityEvent` debe pasar toda metadata por `sanitizeAuditMetadata`. Los secretos nunca se exponen completos. Los datos `highly_sensitive` quedan redacted por defecto y solo pueden mostrarse parcialmente con permisos/contexto explicito.
+
+Consecuencias: Los eventos de auditoria pueden guardar conteos, estados, roles, source type/status, `conversationId` y error codes genericos, pero no prompts completos, respuestas completas, SSN completos, tokens, passwords, URLs privadas completas ni documentos completos. El masking de outputs finales de Copilot queda como trabajo posterior ligado a ficha cliente real y permisos por dato/fuente.

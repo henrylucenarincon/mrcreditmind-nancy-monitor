@@ -23,6 +23,7 @@ import {
   logCopilotApiError,
   logCopilotEvent,
 } from "@/lib/copilot/security";
+import { sanitizeErrorForLog } from "@/lib/security/masking";
 import type {
   CopilotChatMessage,
   CopilotChatRequest,
@@ -130,7 +131,10 @@ export async function POST(request: NextRequest) {
         content: input.message,
       });
     } catch (storageError) {
-      console.error("No pudimos persistir mensaje de usuario Copilot:", storageError);
+      console.error(
+        "No pudimos persistir mensaje de usuario Copilot:",
+        sanitizeErrorForLog(storageError)
+      );
     }
 
     let response: CopilotResponse;
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
     } catch (agentError) {
       console.error(
         "Nancy Copilot OpenAI agent no disponible, usando fallback local:",
-        agentError
+        sanitizeErrorForLog(agentError)
       );
       const fallbackResponse = await runCopilotOrchestrator(input);
       response = {
@@ -173,7 +177,10 @@ export async function POST(request: NextRequest) {
           response: responseWithConversation,
         });
       } catch (storageError) {
-        console.error("No pudimos persistir respuesta Copilot:", storageError);
+        console.error(
+          "No pudimos persistir respuesta Copilot:",
+          sanitizeErrorForLog(storageError)
+        );
       }
     }
 
@@ -212,7 +219,7 @@ export async function POST(request: NextRequest) {
       return forbiddenResponse();
     }
 
-    console.error("Error en /api/copilot/chat:", error);
+    console.error("Error en /api/copilot/chat:", sanitizeErrorForLog(error));
     await logCopilotApiError({
       auth,
       route: "/api/copilot/chat",

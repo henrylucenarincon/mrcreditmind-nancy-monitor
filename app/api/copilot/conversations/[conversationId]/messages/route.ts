@@ -19,6 +19,7 @@ import {
   logCopilotApiError,
   logCopilotEvent,
 } from "@/lib/copilot/security";
+import { sanitizeErrorForLog } from "@/lib/security/masking";
 
 type Params = Promise<{ conversationId: string }>;
 
@@ -62,7 +63,10 @@ export async function GET(_request: NextRequest, context: { params: Params }) {
       return forbiddenResponse();
     }
 
-    console.error("Error cargando mensajes Copilot:", error);
+    console.error(
+      "Error cargando mensajes Copilot:",
+      sanitizeErrorForLog(error)
+    );
     await logCopilotApiError({
       auth,
       route: `/api/copilot/conversations/${conversationId}/messages`,

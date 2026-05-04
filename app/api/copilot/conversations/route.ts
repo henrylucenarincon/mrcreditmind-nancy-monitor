@@ -19,6 +19,7 @@ import {
   logCopilotApiError,
   logCopilotEvent,
 } from "@/lib/copilot/security";
+import { sanitizeErrorForLog } from "@/lib/security/masking";
 
 export async function GET() {
   let auth: AuthorizedInternalUserContext | null = null;
@@ -53,7 +54,10 @@ export async function GET() {
       return forbiddenResponse();
     }
 
-    console.error("Error listando conversaciones Copilot:", error);
+    console.error(
+      "Error listando conversaciones Copilot:",
+      sanitizeErrorForLog(error)
+    );
     await logCopilotApiError({
       auth,
       route: "/api/copilot/conversations",
@@ -101,7 +105,10 @@ export async function POST() {
       return forbiddenResponse();
     }
 
-    console.error("Error creando conversacion Copilot:", error);
+    console.error(
+      "Error creando conversacion Copilot:",
+      sanitizeErrorForLog(error)
+    );
     await logCopilotApiError({
       auth,
       route: "/api/copilot/conversations",

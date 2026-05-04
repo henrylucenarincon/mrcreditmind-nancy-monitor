@@ -4,7 +4,7 @@ Ultima actualizacion: 2026-05-04
 
 ## Estado Actual
 
-Nancy Monitor es un MVP funcional dentro del panel y esta validado en produccion en Hostinger. Nancy Copilot tiene una base visual, API, historial y conectores iniciales. Nancy Chat externo ya funciona fuera del repo mediante WhatsApp/Messenger, n8n y FunnelUp/Funnel App. Nancy Ops y Nancy Voice siguen en etapa de diseno.
+Nancy Monitor es un MVP funcional dentro del panel y esta validado en produccion en Hostinger. Nancy Copilot tiene una base segura: UI, API, historial, role-gating, auditoria minima, manejo controlado de errores y capa central inicial de masking/sensibilidad. Nancy Chat externo ya funciona fuera del repo mediante WhatsApp/Messenger, n8n y FunnelUp/Funnel App. Nancy Ops y Nancy Voice siguen en etapa de diseno.
 
 El repo actual es una aplicacion Next.js/TypeScript llamada `nancy-monitor`, con Supabase como base de datos y despliegue standalone en Hostinger Node.js.
 
@@ -14,7 +14,11 @@ El repo actual es una aplicacion Next.js/TypeScript llamada `nancy-monitor`, con
 - Fase 1: seguridad base de Nancy Monitor.
 - Fase 1.1: migracion Supabase, roles internos y auditoria minima.
 - Fase 1.2: cache hardening de rutas internas.
-- Fase 2.1: proteccion base de APIs de Nancy Copilot.
+- Fase 2: Nancy Copilot Seguro.
+
+## Fases En Progreso
+
+- Fase 2.1: masking y niveles de sensibilidad. Base central implementada; pendiente aplicar masking a outputs finales cuando se construya ficha cliente real.
 
 ## Validacion en Produccion
 
@@ -45,6 +49,8 @@ Validado en Hostinger/HCDN el 2026-05-04:
 - APIs de Nancy Monitor protegidas por sesion y rol antes de usar service role server-side.
 - APIs de Nancy Copilot protegidas por sesion y rol interno; `readonly` queda bloqueado para Copilot.
 - Auditoria minima de Copilot para listado/creacion de conversaciones, lectura de mensajes, envio de mensajes, denegaciones y errores relevantes.
+- Capa central de sensibilidad y masking en `lib/security/data-sensitivity.ts`, `lib/security/sensitive-fields.ts` y `lib/security/masking.ts`.
+- `logSecurityEvent` sanitiza metadata antes de insertar en `security_audit_log`.
 - Manejo controlado de errores 401/403/500 y respuestas inesperadas en UI de Copilot.
 - Rutas internas dinamicas/no-store para evitar HTML cacheado agresivamente en CDN.
 - Clientes/conectores para FunnelUp, Google Drive y Google Sheets.
@@ -61,18 +67,18 @@ Fuera del repo ya existe:
 
 ## Proximos Pasos
 
-1. Implementar masking centralizado para datos Nivel 2, 3 y 4 antes de exponer mas fuentes sensibles en Copilot.
-2. Construir ficha cliente normalizada usando FunnelUp como fuente principal y cruzando datos permitidos de Drive, Sheets y Supabase.
-3. Definir permisos por dato/fuente para Drive, Sheets, FunnelUp, Ops y futuras herramientas de Copilot.
-4. Extender auditoria de tools de Copilot con nombres de herramienta, source type, resultado y errores sin contenido sensible.
-5. Reducir gradualmente el uso de service role en endpoints consumidos por frontend.
-6. Mantener Copilot/Ops inicialmente read-only hasta que existan permisos, validacion y auditoria completa.
+1. Resolver validacion final de build si persiste el error de artifact `.next/server/pages-manifest.json`.
+2. Aplicar masking a outputs finales de Copilot cuando se construya la ficha cliente real.
+3. Construir ficha cliente normalizada usando FunnelUp como fuente principal y cruzando datos permitidos de Drive, Sheets y Supabase.
+4. Definir permisos por dato/fuente para Drive, Sheets, FunnelUp, Ops y futuras herramientas de Copilot.
+5. Extender auditoria de tools de Copilot con nombres de herramienta, source type, resultado y errores sin contenido sensible.
+6. Reducir gradualmente el uso de service role en endpoints consumidos por frontend.
 7. Documentar workflows n8n existentes.
 8. Validar viabilidad tecnica y autorizada de SmartCredit.
 
 ## Estado de Seguridad
 
-Monitor valida usuario autenticado y rol interno antes de consultar datos con service role server-side. La migracion de roles internos y auditoria minima ya fue completada. Copilot ahora valida usuario autenticado y rol interno en sus APIs; `admin`, `manager`, `ops` y `sales` pueden usar Copilot, mientras `readonly` queda bloqueado por ahora. Ver `docs/SECURITY_NOTES.md`.
+Monitor valida usuario autenticado y rol interno antes de consultar datos con service role server-side. La migracion de roles internos y auditoria minima ya fue completada. Copilot valida usuario autenticado y rol interno en sus APIs; `admin`, `manager`, `ops` y `sales` pueden usar Copilot, mientras `readonly` queda bloqueado por ahora. La metadata de auditoria pasa por sanitizacion central para evitar prompts completos, respuestas completas, secretos, SSN completos, tokens y URLs privadas completas. Ver `docs/SECURITY_NOTES.md`.
 
 ## Notas de Entrega
 

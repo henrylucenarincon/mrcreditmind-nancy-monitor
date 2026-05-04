@@ -7,6 +7,7 @@ import { getClientSummary } from "./tools/get-client-summary";
 import { getFundingStatus } from "./tools/get-funding-status";
 import { searchInternalOperationalData } from "./tools/search-internal-operational-data";
 import { isCopilotToolName, type CopilotToolName } from "./tool-registry";
+import { sanitizeErrorForLog } from "@/lib/security/masking";
 
 type ToolArguments = Record<string, unknown>;
 
@@ -99,7 +100,7 @@ export async function executeCopilotTool(
   } catch (error) {
     console.error(
       `Error ejecutando tool ${name}:`,
-      error instanceof Error ? error.message : error
+      sanitizeErrorForLog(error)
     );
 
     return {
