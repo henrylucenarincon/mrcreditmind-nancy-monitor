@@ -7,7 +7,7 @@ import type {
 } from "./types";
 
 const DEFAULT_BASE_URL = "https://www.googleapis.com/drive/v3";
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 
 type JsonObject = Record<string, unknown>;
@@ -380,6 +380,50 @@ function sortMatches(matches: GoogleDriveSearchMatch[]) {
     if (b.score !== a.score) return b.score - a.score;
     return (b.file.modifiedTime || "").localeCompare(a.file.modifiedTime || "");
   });
+}
+
+export async function requestGoogleDriveApi(input: {
+  method: "GET" | "POST" | "PATCH" | "DELETE";
+  endpoint: string;
+  params?: Record<string, string>;
+  body?: Record<string, unknown>;
+}): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const config = getGoogleDriveConfig();
+  const token = await getAccessToken(config);
+
+  const qs = new URLSearchParams(input.params ?? {});
+  if (config.sharedDriveId && input.method === "GET") {
+    if (!qs.has("supportsAllDrives")) qs.set("supportsAllDrives", "true");
+    if (!qs.has("includeItemsFromAllDrives")) qs.set("includeItemsFromAllDrives", "true");
+    if (input.endpoint === "/files" && !qs.has("corpora")) {
+      qs.set("corpora", "drive");
+      qs.set("driveId", config.sharedDriveId);
+    }
+  }
+
+  const queryString = qs.toString();
+  const url = `${config.baseUrl}${input.endpoint}${queryString ? `?${queryString}` : ""}`;
+
+  const response = await fetch(url, {
+    method: input.method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...(input.body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: input.body ? JSON.stringify(input.body) : undefined,
+    cache: "no-store",
+  });
+
+  let data: unknown;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try { data = await response.json(); } catch { data = null; }
+  } else {
+    data = { content: await response.text().catch(() => "") };
+  }
+
+  return { ok: response.ok, status: response.status, data };
 }
 
 export async function searchDriveFolderOrFile(input: {

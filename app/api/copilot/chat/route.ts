@@ -13,7 +13,7 @@ import {
   appendCopilotMessage,
   ensureCopilotConversation,
 } from "@/lib/copilot/history";
-import { runOpenAICopilot } from "@/lib/copilot/openai-client";
+import { runClaudeCopilot } from "@/lib/copilot/claude-client";
 import { runCopilotOrchestrator } from "@/lib/copilot/orchestrator";
 import {
   COPILOT_API_ROLES,
@@ -140,10 +140,10 @@ export async function POST(request: NextRequest) {
     let response: CopilotResponse;
 
     try {
-      response = await runOpenAICopilot(input);
+      response = await runClaudeCopilot(input);
     } catch (agentError) {
       console.error(
-        "Nancy Copilot OpenAI agent no disponible, usando fallback local:",
+        "Nancy Copilot Claude agent no disponible, usando fallback local:",
         sanitizeErrorForLog(agentError)
       );
       const fallbackResponse = await runCopilotOrchestrator(input);
@@ -153,8 +153,8 @@ export async function POST(request: NextRequest) {
         sources: [
           ...fallbackResponse.sources,
           {
-            id: "openai-conversational-model-pending",
-            label: "OpenAI conversational model pending",
+            id: "claude-conversational-model-pending",
+            label: "Claude conversational model pending",
             type: "internal",
             status: "pending",
           },

@@ -270,3 +270,45 @@ export async function searchFunnelUpContacts(query: string): Promise<FunnelUpSea
 export function formatFunnelUpContactName(contact: FunnelUpContact) {
   return contactName(contact) || contact.email || contact.phone || contact.id;
 }
+
+export async function requestFunnelUpApi(input: {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path: string;
+  params?: Record<string, string>;
+  body?: Record<string, unknown>;
+}): Promise<{ ok: boolean; status: number; data: unknown }> {
+  const config = getFunnelUpConfig();
+
+  const qs = new URLSearchParams(input.params ?? {});
+  if (input.method === "GET" && !qs.has("locationId")) {
+    qs.set("locationId", config.locationId);
+  }
+  const queryString = qs.toString();
+  const url = `${config.baseUrl}${input.path}${queryString ? `?${queryString}` : ""}`;
+
+  const bodyData =
+    input.body && input.method !== "GET"
+      ? { locationId: config.locationId, ...input.body }
+      : undefined;
+
+  const response = await fetch(url, {
+    method: input.method,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${config.apiKey}`,
+      Version: API_VERSION,
+      ...(bodyData ? { "Content-Type": "application/json" } : {}),
+    },
+    body: bodyData ? JSON.stringify(bodyData) : undefined,
+    cache: "no-store",
+  });
+
+  let data: unknown;
+  try {
+    data = await response.json();
+  } catch {
+    data = { raw: await response.text().catch(() => "") };
+  }
+
+  return { ok: response.ok, status: response.status, data };
+}
