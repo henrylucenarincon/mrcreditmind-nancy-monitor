@@ -54,52 +54,46 @@ export function LoginClient() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden" style={{ color: "var(--foreground)" }}>
-      <div className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-6 sm:py-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(184,161,127,0.12)_0%,transparent_26%),radial-gradient(circle_at_82%_18%,rgba(75,95,130,0.10)_0%,transparent_18%),linear-gradient(135deg,var(--background)_0%,var(--panel)_46%,var(--background)_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-gold)]/35 to-transparent" />
-        <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-[var(--brand-gold)]/10 blur-3xl" />
-
+    <main className="min-h-screen" style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}>
+      <div className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-6 sm:py-12">
         <section
-          className="relative w-full max-w-md overflow-hidden rounded-[28px] border backdrop-blur-xl"
+          className="w-full max-w-md overflow-hidden rounded-2xl border"
           style={{
-            borderColor: "var(--border-soft)",
-            backgroundColor: "color-mix(in srgb, var(--panel) 88%, transparent)",
+            borderColor: "var(--border)",
+            backgroundColor: "var(--card)",
             boxShadow: "var(--shadow-panel)",
           }}
         >
-          <div className="border-b px-6 py-6 sm:px-8" style={{ borderColor: "var(--border)" }}>
-            <div className="flex items-start justify-between gap-4">
-              <Image
-                src={theme === "light" ? "/brand/mrcreditmind-logo-dark.svg" : "/brand/mrcreditmind-logo.svg"}
-                alt="Mr. CREDITMIND"
-                width={220}
-                height={40}
-                className="h-auto w-[170px] opacity-95 sm:w-[200px]"
-                priority
-              />
+          <div className="flex items-center justify-between gap-4 px-6 py-5 sm:px-8">
+            <Image
+              src={theme === "light" ? "/brand/mrcreditmind-logo-dark.svg" : "/brand/mrcreditmind-logo.svg"}
+              alt="Mr. CREDITMIND"
+              width={220}
+              height={40}
+              className="h-auto w-[170px] opacity-95 sm:w-[200px]"
+              priority
+            />
 
-              <button
-                type="button"
-                onClick={handleToggleTheme}
-                aria-label="Cambiar tema"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition hover:bg-white/5"
-                style={{
-                  borderColor: "var(--border)",
-                  backgroundColor: "rgba(255,255,255,0.03)",
-                  color: "var(--foreground)",
-                }}
-              >
-                {theme === "dark" ? (
-                  <SunMedium className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
-                ) : (
-                  <Moon className="h-4 w-4" style={{ color: "var(--brand-blue)" }} />
-                )}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleToggleTheme}
+              aria-label="Cambiar tema"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border transition"
+              style={{
+                borderColor: "var(--border)",
+                backgroundColor: "var(--card)",
+                color: "var(--foreground)",
+              }}
+            >
+              {theme === "dark" ? (
+                <SunMedium className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
+              ) : (
+                <Moon className="h-4 w-4" style={{ color: "var(--brand-blue)" }} />
+              )}
+            </button>
           </div>
 
-          <div className="px-6 py-7 sm:px-8 sm:py-8">
+          <div className="px-6 pb-7 pt-2 sm:px-8 sm:pb-8">
             <div className="mb-7">
               <p
                 className="mb-3 text-[11px] font-medium uppercase tracking-[0.34em]"
@@ -221,3 +215,4 @@ export function LoginClient() {
     </main>
   );
 }
+

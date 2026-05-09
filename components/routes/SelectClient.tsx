@@ -26,61 +26,72 @@ export function SelectClient() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden" style={{ color: "var(--foreground)" }}>
-      <div className="relative flex min-h-screen items-center justify-center px-5 py-10 sm:px-6 sm:py-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(184,161,127,0.12)_0%,transparent_26%),radial-gradient(circle_at_82%_18%,rgba(75,95,130,0.10)_0%,transparent_18%),linear-gradient(135deg,var(--background)_0%,var(--panel)_46%,var(--background)_100%)]" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--brand-gold)]/35 to-transparent" />
-        <div className="absolute left-1/2 top-0 h-80 w-80 -translate-x-1/2 rounded-full bg-[var(--brand-gold)]/10 blur-3xl" />
+    <main className="min-h-screen" style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}>
+      <div className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-6 sm:py-12">
+        <section
+          className="w-full max-w-2xl overflow-hidden rounded-2xl border"
+          style={{
+            borderColor: "var(--border)",
+            backgroundColor: "var(--card)",
+            boxShadow: "var(--shadow-panel)",
+          }}
+        >
+          <div className="flex items-center justify-between gap-4 px-6 py-5 sm:px-8">
+            <Image
+              src={theme === "light" ? "/brand/mrcreditmind-logo-dark.svg" : "/brand/mrcreditmind-logo.svg"}
+              alt="Mr. CREDITMIND"
+              width={220}
+              height={40}
+              className="h-auto w-[170px] opacity-95 sm:w-[200px]"
+              priority
+            />
 
-        <section className="relative w-full max-w-2xl overflow-hidden rounded-[28px] border backdrop-blur-xl" style={{ borderColor: "var(--border-soft)", backgroundColor: "color-mix(in srgb, var(--panel) 88%, transparent)", boxShadow: "var(--shadow-panel)" }}>
-          <div className="border-b px-6 py-6 sm:px-8" style={{ borderColor: "var(--border)" }}>
-            <div className="flex items-start justify-between gap-4">
-              <Image
-                src={theme === "light" ? "/brand/mrcreditmind-logo-dark.svg" : "/brand/mrcreditmind-logo.svg"}
-                alt="Mr. CREDITMIND"
-                width={220}
-                height={40}
-                className="h-auto w-[170px] opacity-95 sm:w-[200px]"
-                priority
-              />
-
-              <button
-                type="button"
-                onClick={handleToggleTheme}
-                aria-label="Cambiar tema"
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition hover:bg-white/5"
-                style={{ borderColor: "var(--border)", backgroundColor: "rgba(255,255,255,0.03)", color: "var(--foreground)" }}
-              >
-                {theme === "dark" ? (
-                  <SunMedium className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
-                ) : (
-                  <Moon className="h-4 w-4" style={{ color: "var(--brand-blue)" }} />
-                )}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleToggleTheme}
+              aria-label="Cambiar tema"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border transition"
+              style={{ borderColor: "var(--border)", backgroundColor: "var(--card)", color: "var(--foreground)" }}
+            >
+              {theme === "dark" ? (
+                <SunMedium className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
+              ) : (
+                <Moon className="h-4 w-4" style={{ color: "var(--brand-blue)" }} />
+              )}
+            </button>
           </div>
 
-          <div className="px-6 py-7 sm:px-8 sm:py-8">
+          <div className="px-6 pb-7 pt-2 sm:px-8 sm:pb-8">
             <div className="mb-8 text-center">
               <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.34em]" style={{ color: "var(--brand-gold)" }}>
                 Panel de Control
               </p>
               <h1 className="text-3xl font-semibold tracking-tight sm:text-[2rem]">
-                ¿Dónde quieres ir?
+                Selecciona una herramienta
               </h1>
               <p className="mt-3 text-sm leading-6" style={{ color: "var(--foreground-soft)" }}>
-                Selecciona la herramienta que necesitas usar hoy.
+                Elige la herramienta que necesitas usar hoy.
               </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <button
                 onClick={() => router.push("/")}
-                className="group relative overflow-hidden rounded-2xl border p-6 text-left transition hover:bg-white/5"
+                className="group rounded-2xl border p-6 text-left transition"
                 style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderLeftColor = "#2a4059";
+                  (e.currentTarget as HTMLButtonElement).style.borderLeftWidth = "3px";
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--card-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderLeftColor = "var(--border)";
+                  (e.currentTarget as HTMLButtonElement).style.borderLeftWidth = "1px";
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--card)";
+                }}
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: "var(--brand-blue-soft)" }}>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: "rgba(42,64,89,0.10)" }}>
                     <Monitor className="h-6 w-6" style={{ color: "var(--brand-blue)" }} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -96,11 +107,21 @@ export function SelectClient() {
 
               <button
                 onClick={() => router.push("/copilot")}
-                className="group relative overflow-hidden rounded-2xl border p-6 text-left transition hover:bg-white/5"
+                className="group rounded-2xl border p-6 text-left transition"
                 style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderLeftColor = "#b8a17f";
+                  (e.currentTarget as HTMLButtonElement).style.borderLeftWidth = "3px";
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--card-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderLeftColor = "var(--border)";
+                  (e.currentTarget as HTMLButtonElement).style.borderLeftWidth = "1px";
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = "var(--card)";
+                }}
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: "var(--brand-gold)", opacity: 0.1 }}>
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: "rgba(184,161,127,0.12)" }}>
                     <MessageSquare className="h-6 w-6" style={{ color: "var(--brand-gold)" }} />
                   </div>
                   <div className="min-w-0 flex-1">

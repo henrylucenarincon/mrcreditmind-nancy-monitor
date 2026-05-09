@@ -292,12 +292,8 @@ function InfoCard({
 }) {
   return (
     <div
-      className="rounded-2xl border p-4"
-      style={{
-        borderColor: UI.border,
-        backgroundColor: "rgba(255,255,255,0.02)",
-        boxShadow: "var(--shadow-soft)",
-      }}
+      className="flex items-center justify-between gap-3 border-b py-3"
+      style={{ borderColor: UI.border }}
     >
       <div
         className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]"
@@ -306,7 +302,7 @@ function InfoCard({
         {icon}
         <span>{label}</span>
       </div>
-      <p className="mt-3 text-sm leading-6" style={{ color: UI.fg }}>
+      <p className="text-sm font-medium" style={{ color: UI.fg }}>
         {value}
       </p>
     </div>
@@ -344,10 +340,10 @@ function ThemeToggle({
   return (
     <button
       onClick={onToggle}
-      className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border transition"
       style={{
         borderColor: UI.border,
-        backgroundColor: "rgba(255,255,255,0.03)",
+        backgroundColor: UI.card,
         color: UI.fg,
       }}
       aria-label="Cambiar tema"
@@ -358,7 +354,6 @@ function ThemeToggle({
       ) : (
         <Moon className="h-4 w-4" style={{ color: UI.blue }} />
       )}
-      {theme === "dark" ? "Light" : "Dark"}
     </button>
   );
 }
@@ -515,98 +510,71 @@ export function NancyMonitorClient() {
 
   return (
     <main className="min-h-screen lg:h-screen lg:overflow-hidden" style={{ color: UI.fg }}>
-      <div className="mx-auto flex min-h-screen max-w-[1700px] flex-col px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:px-6 lg:py-8">
-        <div className="mb-6 lg:mb-8">
-          <div
-            className="overflow-hidden rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6"
-            style={{
-              borderColor: UI.borderSoft,
-              background:
-                "linear-gradient(135deg, rgba(184,161,127,0.10) 0%, rgba(42,64,89,0.08) 42%, rgba(255,255,255,0.02) 100%)",
-              boxShadow: "var(--shadow-panel)",
-            }}
-          >
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border shadow-[0_0_0_1px_rgba(255,255,255,0.03)]"
-                    style={{
-                      borderColor: UI.borderSoft,
-                      backgroundColor: UI.panelSoft,
-                    }}
-                  >
-                    <Image
-                      src="/brand/nancy-mark.png"
-                      alt="Nancy Monitor"
-                      fill
-                      className="object-cover"
-                      sizes="44px"
-                      priority
-                    />
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-[2rem]">
-                        Nancy Monitor
-                      </h1>
-                      <Badge
-                        tone={{
-                          border: UI.warningBorder,
-                          background: UI.warningBg,
-                          color: UI.warningText,
-                        }}
-                      >
-                        Interno
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-sm sm:text-[15px]" style={{ color: UI.fgSoft }}>
-                      Centro interno de monitoreo comercial.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
-
-                <button
-                  onClick={handleRefresh}
-                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
-                  style={{
-                    borderColor: UI.border,
-                    backgroundColor: "rgba(255,255,255,0.03)",
-                    color: UI.fg,
-                  }}
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} style={{ color: UI.gold }} />
-                  Actualizar
-                </button>
-
-                <button
-                  onClick={handleLogout}
-                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
-                  style={{
-                    borderColor: UI.border,
-                    backgroundColor: "rgba(255,255,255,0.03)",
-                    color: UI.fg,
-                  }}
-                >
-                  <LogOut className="h-4 w-4" style={{ color: UI.gold }} />
-                  Cerrar sesión
-                </button>
-              </div>
+      <div className="mx-auto flex min-h-screen max-w-[1700px] flex-col px-4 sm:px-6 lg:h-screen lg:px-6">
+        <header
+          className="flex h-16 shrink-0 items-center justify-between gap-4 border-b px-0 py-3"
+          style={{ borderColor: UI.border }}
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border"
+              style={{ borderColor: UI.borderSoft, backgroundColor: UI.panelSoft }}
+            >
+              <Image
+                src="/brand/nancy-mark.png"
+                alt="Nancy Monitor"
+                fill
+                className="object-cover"
+                sizes="32px"
+                priority
+              />
             </div>
+            <span className="text-base font-semibold tracking-tight">Nancy Monitor</span>
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: "var(--brand-green)" }}
+              aria-hidden="true"
+            />
           </div>
-        </div>
 
-        <div className="hidden min-h-0 flex-1 gap-6 lg:grid lg:grid-cols-[360px_minmax(0,1fr)_320px]">
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => router.push("/copilot")}
+              className="inline-flex h-8 items-center gap-1.5 rounded-2xl border px-3 text-xs font-medium transition"
+              style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.fg }}
+            >
+              <MessageSquare className="h-3.5 w-3.5" style={{ color: UI.gold }} />
+              Copilot
+            </button>
+
+            <button
+              onClick={handleRefresh}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border transition"
+              style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.fg }}
+              aria-label="Actualizar"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} style={{ color: UI.gold }} />
+            </button>
+
+            <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
+
+            <button
+              onClick={handleLogout}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border transition"
+              style={{ borderColor: UI.border, backgroundColor: UI.card, color: UI.fg }}
+              aria-label="Cerrar sesión"
+            >
+              <LogOut className="h-4 w-4" style={{ color: UI.muted }} />
+            </button>
+          </div>
+        </header>
+
+        <div className="hidden min-h-0 flex-1 gap-6 py-5 lg:grid lg:grid-cols-[360px_minmax(0,1fr)_320px]">
           <aside
-            className="flex min-h-0 flex-col rounded-3xl border p-4"
+            className="flex min-h-0 flex-col rounded-2xl border p-4"
             style={{
               borderColor: UI.border,
-              backgroundColor: "rgba(255,255,255,0.03)",
+              backgroundColor: UI.card,
             }}
           >
             <div className="mb-4 flex items-center justify-between">
@@ -656,9 +624,10 @@ export function NancyMonitorClient() {
                       onClick={() => setSelectedConversationId(item.conversation_id)}
                       className="w-full rounded-2xl border p-4 text-left transition"
                       style={{
-                        borderColor: isActive ? UI.warningBorder : UI.border,
-                        backgroundColor: isActive ? UI.warningBg : UI.card,
-                        boxShadow: isActive ? "0 0 0 1px rgba(184,161,127,0.06)" : "none",
+                        borderColor: UI.border,
+                        borderLeftColor: isActive ? UI.gold : UI.border,
+                        borderLeftWidth: isActive ? "3px" : "1px",
+                        backgroundColor: isActive ? "var(--card-hover)" : UI.card,
                       }}
                     >
                       <div className="mb-3 flex items-start justify-between gap-3">
@@ -697,10 +666,10 @@ export function NancyMonitorClient() {
           </aside>
 
           <section
-            className="flex min-h-0 flex-col rounded-3xl border"
+            className="flex min-h-0 flex-col rounded-2xl border"
             style={{
               borderColor: UI.border,
-              backgroundColor: "rgba(255,255,255,0.03)",
+              backgroundColor: UI.card,
             }}
           >
             <div className="border-b px-6 py-5" style={{ borderColor: UI.border }}>
@@ -750,7 +719,7 @@ export function NancyMonitorClient() {
                       <div key={msg.id} className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
                         <div className="max-w-[84%]">
                           <div
-                            className="rounded-[28px] border px-5 py-4 shadow-sm"
+                            className="rounded-2xl border px-5 py-4 shadow-sm"
                             style={{
                               borderColor: isOutbound ? UI.warningBorder : UI.border,
                               backgroundColor: isOutbound ? UI.warningBg : UI.card,
@@ -768,12 +737,6 @@ export function NancyMonitorClient() {
                             <p className="whitespace-pre-wrap text-sm leading-7">
                               {msg.message_text || "(sin contenido)"}
                             </p>
-
-                            <div className="mt-4">
-                              <Badge tone={getDirectionBadgeMeta(msg.direction)}>
-                                {msg.direction === "outbound" ? "Enviado" : "Recibido"}
-                              </Badge>
-                            </div>
                           </div>
 
                           <div className={`mt-2 px-2 text-[11px] ${isOutbound ? "text-right" : "text-left"}`} style={{ color: UI.muted }}>
@@ -789,17 +752,19 @@ export function NancyMonitorClient() {
           </section>
 
           <aside
-            className="flex min-h-0 flex-col rounded-3xl border p-4"
+            className="flex min-h-0 flex-col rounded-2xl border p-4"
             style={{
               borderColor: UI.border,
-              backgroundColor: "rgba(255,255,255,0.03)",
+              backgroundColor: UI.card,
             }}
           >
             <div className="mb-4">
-              <h2 className="text-lg font-medium">Ficha del lead</h2>
-              <p className="mt-1 text-sm" style={{ color: UI.muted }}>
-                Señales rápidas para seguimiento comercial
-              </p>
+              <h2
+                className="text-[11px] font-medium uppercase tracking-[0.22em]"
+                style={{ color: UI.muted }}
+              >
+                Ficha del lead
+              </h2>
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
@@ -886,11 +851,11 @@ export function NancyMonitorClient() {
           </aside>
         </div>
 
-        <div className="flex flex-1 flex-col gap-4 lg:hidden">
+        <div className="flex flex-1 flex-col gap-4 py-4 lg:hidden">
           {shouldShowMobileList ? (
             <section
-              className="flex min-h-0 flex-1 flex-col rounded-3xl border p-4"
-              style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.03)" }}
+              className="flex min-h-0 flex-1 flex-col rounded-2xl border p-4"
+              style={{ borderColor: UI.border, backgroundColor: UI.card }}
             >
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-lg font-medium">Conversaciones</h2>
@@ -945,8 +910,10 @@ export function NancyMonitorClient() {
                         }}
                         className="w-full rounded-2xl border p-4 text-left transition"
                         style={{
-                          borderColor: isActive ? UI.warningBorder : UI.border,
-                          backgroundColor: isActive ? UI.warningBg : UI.card,
+                          borderColor: UI.border,
+                          borderLeftColor: isActive ? UI.gold : UI.border,
+                          borderLeftWidth: isActive ? "3px" : "1px",
+                          backgroundColor: isActive ? "var(--card-hover)" : UI.card,
                         }}
                       >
                         <div className="mb-3 flex items-start justify-between gap-3">
@@ -988,8 +955,8 @@ export function NancyMonitorClient() {
           {shouldShowMobileChat ? (
             <>
               <section
-                className="flex min-h-0 flex-1 flex-col rounded-3xl border"
-                style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.03)" }}
+                className="flex min-h-0 flex-1 flex-col rounded-2xl border"
+                style={{ borderColor: UI.border, backgroundColor: UI.card }}
               >
                 <div className="border-b px-4 py-4 sm:px-5" style={{ borderColor: UI.border }}>
                   <button
@@ -1049,7 +1016,7 @@ export function NancyMonitorClient() {
                           <div key={msg.id} className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
                             <div className="max-w-[92%] sm:max-w-[84%]">
                               <div
-                                className="rounded-[24px] border px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5"
+                                className="rounded-2xl border px-4 py-4 shadow-sm sm:px-5"
                                 style={{
                                   borderColor: isOutbound ? UI.warningBorder : UI.border,
                                   backgroundColor: isOutbound ? UI.warningBg : UI.card,
@@ -1067,12 +1034,6 @@ export function NancyMonitorClient() {
                                 <p className="whitespace-pre-wrap text-sm leading-7">
                                   {msg.message_text || "(sin contenido)"}
                                 </p>
-
-                                <div className="mt-4">
-                                  <Badge tone={getDirectionBadgeMeta(msg.direction)}>
-                                    {msg.direction === "outbound" ? "Enviado" : "Recibido"}
-                                  </Badge>
-                                </div>
                               </div>
 
                               <div className={`mt-2 px-2 text-[11px] ${isOutbound ? "text-right" : "text-left"}`} style={{ color: UI.muted }}>
@@ -1088,14 +1049,16 @@ export function NancyMonitorClient() {
               </section>
 
               <aside
-                className="rounded-3xl border p-4"
-                style={{ borderColor: UI.border, backgroundColor: "rgba(255,255,255,0.03)" }}
+                className="rounded-2xl border p-4"
+                style={{ borderColor: UI.border, backgroundColor: UI.card }}
               >
                 <div className="mb-4">
-                  <h2 className="text-lg font-medium">Ficha del lead</h2>
-                  <p className="mt-1 text-sm" style={{ color: UI.muted }}>
-                    Señales rápidas para seguimiento comercial
-                  </p>
+                  <h2
+                    className="text-[11px] font-medium uppercase tracking-[0.22em]"
+                    style={{ color: UI.muted }}
+                  >
+                    Ficha del lead
+                  </h2>
                 </div>
 
                 <div className="space-y-3">
