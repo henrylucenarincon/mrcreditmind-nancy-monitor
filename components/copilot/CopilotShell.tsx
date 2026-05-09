@@ -1,18 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Bot, LayoutDashboard, Moon, SunMedium } from "lucide-react";
+import { ArrowLeft, Moon, SunMedium } from "lucide-react";
 import { CopilotChat } from "./CopilotChat";
 import { CopilotContextPanel } from "./CopilotContextPanel";
 import { CopilotSidebar } from "./CopilotSidebar";
-import {
-  mockActions,
-  mockContext,
-  mockMetrics,
-} from "./mock-data";
-import type { CopilotAction, CopilotContextItem, CopilotMessage } from "./types";
+import type { CopilotMessage, ToolActivityItem } from "./types";
 import type {
   CopilotChatMessage,
   CopilotResponse,
@@ -56,72 +51,28 @@ class CopilotApiError extends Error {
   }
 }
 
+const TOOL_LABELS: Record<string, string> = {
+  funnelup_request: "Consultando FunnelUP",
+  drive_request: "Revisando Drive",
+  find_client: "Buscando cliente",
+  find_drive_folder_or_file: "Buscando en Drive",
+  get_client_documents: "Revisando documentos",
+  get_client_onboarding_status: "Verificando onboarding",
+  get_client_summary: "Obteniendo resumen",
+  get_funding_status: "Revisando financiamiento",
+  search_internal_operational_data: "Buscando datos internos",
+};
+
+function getToolLabel(name: string): string {
+  return TOOL_LABELS[name] ?? name;
+}
+
 function formatTime() {
   return new Intl.DateTimeFormat("es-PR", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
   }).format(new Date());
-}
-
-function mapResponseContext(response: CopilotResponse | null): CopilotContextItem[] {
-  if (!response || response.context.length === 0) {
-    return mockContext;
-  }
-
-  return response.context.map((item) => ({
-    label: item.label,
-    value: item.value,
-  }));
-}
-
-function mapResponseActions(response: CopilotResponse | null): CopilotAction[] {
-  if (!response || response.actions.length === 0) {
-    return mockActions;
-  }
-
-  return response.actions.map((action) => ({
-    id: action.id,
-    label: action.label,
-    detail: action.description,
-    status: action.type === "draft_message" ? "Borrador" : "Revisar",
-  }));
-}
-
-function formatConversationTime(value: string) {
-  try {
-    return new Intl.DateTimeFormat("es-PR", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(new Date(value));
-  } catch {
-    return "";
-  }
-}
-
-function mapConversationToHistory(item: ConversationApiRecord) {
-  return {
-    id: item.id,
-    title: item.title,
-    source: "Copilot",
-    status: "Activo" as const,
-    time: formatConversationTime(item.updated_at),
-    summary: item.summary || "Sin mensajes todavia.",
-  };
-}
-
-function mapApiMessageToUi(item: MessageApiRecord): CopilotMessage {
-  return {
-    id: item.id,
-    role: item.role,
-    author: item.role === "assistant" ? "Nancy Copilot" : "Equipo",
-    time: formatConversationTime(item.created_at),
-    content: item.content,
-    response: item.response ?? undefined,
-  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -161,18 +112,8 @@ function isCopilotResponse(value: unknown): value is CopilotResponse {
   );
 }
 
-async function readJsonResponse(response: Response) {
-  const contentType = response.headers.get("content-type") ?? "";
-
-  if (!contentType.toLowerCase().includes("application/json")) {
-    throw new CopilotApiError(
-      "La respuesta del servidor no tuvo el formato esperado.",
-      response.status,
-      "non_json_response"
-    );
-  }
-
-  return (await response.json()) as unknown;
+function isSseEvent(value: unknown): value is Record<string, unknown> & { type: string } {
+  return isRecord(value) && typeof value.type === "string";
 }
 
 function getStatusErrorCode(status: number): CopilotApiErrorCode {
@@ -206,6 +147,20 @@ function getSafeErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+async function readJsonResponse(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw new CopilotApiError(
+      "La respuesta del servidor no tuvo el formato esperado.",
+      response.status,
+      "non_json_response"
+    );
+  }
+
+  return (await response.json()) as unknown;
+}
+
 async function readApiData<T>(
   response: Response,
   validate: (value: unknown) => value is T
@@ -231,19 +186,54 @@ async function readApiData<T>(
   return data;
 }
 
+function formatConversationTime(value: string) {
+  try {
+    return new Intl.DateTimeFormat("es-PR", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(value));
+  } catch {
+    return "";
+  }
+}
+
+function mapConversationToHistory(item: ConversationApiRecord) {
+  return {
+    id: item.id,
+    title: item.title,
+    source: "Copilot",
+    status: "Activo" as const,
+    time: formatConversationTime(item.updated_at),
+    summary: item.summary || "Sin mensajes todavia.",
+  };
+}
+
+function mapApiMessageToUi(item: MessageApiRecord): CopilotMessage {
+  return {
+    id: item.id,
+    role: item.role,
+    author: item.role === "assistant" ? "Nancy Copilot" : "Equipo",
+    time: formatConversationTime(item.created_at),
+    content: item.content,
+    response: item.response ?? undefined,
+  };
+}
+
 export function CopilotShell() {
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [conversations, setConversations] = useState<ConversationApiRecord[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [latestResponse, setLatestResponse] = useState<CopilotResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [error, setError] = useState("");
   const [isAccessBlocked, setIsAccessBlocked] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>("light");
+  const [toolActivity, setToolActivity] = useState<ToolActivityItem[]>([]);
+  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const context = useMemo(() => mapResponseContext(latestResponse), [latestResponse]);
-  const actions = useMemo(() => mapResponseActions(latestResponse), [latestResponse]);
   const historyItems = useMemo(() => {
     return conversations.map(mapConversationToHistory);
   }, [conversations]);
@@ -317,9 +307,6 @@ export function CopilotShell() {
       const loadedMessages = data.messages.map(mapApiMessageToUi);
       setActiveConversationId(conversationId);
       setMessages(loadedMessages);
-      setLatestResponse(
-        [...loadedMessages].reverse().find((message) => message.response)?.response ?? null
-      );
       setIsAccessBlocked(false);
     } catch (loadError) {
       console.error("Error abriendo conversacion Copilot:", loadError);
@@ -369,14 +356,12 @@ export function CopilotShell() {
       );
       setActiveConversationId(data.conversation.id);
       setMessages([]);
-      setLatestResponse(null);
       setIsAccessBlocked(false);
       void loadConversations();
     } catch (createError) {
       console.error("Error creando conversacion Copilot:", createError);
       setActiveConversationId(null);
       setMessages([]);
-      setLatestResponse(null);
       setIsAccessBlocked(
         createError instanceof CopilotApiError &&
           (createError.code === "unauthenticated" || createError.code === "forbidden")
@@ -403,6 +388,12 @@ export function CopilotShell() {
     setMessages((items) => [...items, userMessage]);
     setError("");
     setIsLoading(true);
+    setToolActivity([]);
+
+    if (cleanupTimerRef.current !== null) {
+      clearTimeout(cleanupTimerRef.current);
+      cleanupTimerRef.current = null;
+    }
 
     const history: CopilotChatMessage[] = currentMessages.map((item) => ({
       role: item.role,
@@ -422,33 +413,110 @@ export function CopilotShell() {
         }),
       });
 
-      if (!response.ok) {
-        await readJsonResponse(response);
+      if (!response.ok || !response.body) {
+        const status = response.status;
         throw new CopilotApiError(
           "No pudimos obtener respuesta de Nancy Copilot.",
-          response.status,
-          getStatusErrorCode(response.status)
+          status,
+          getStatusErrorCode(status)
         );
       }
 
-      const data = await readApiData(response, isCopilotResponse);
-      if (data.conversationId) {
-        setActiveConversationId(data.conversationId);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+
+          const rawJson = trimmed.slice("data:".length).trim();
+          if (!rawJson) continue;
+
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(rawJson) as unknown;
+          } catch {
+            continue;
+          }
+
+          if (!isSseEvent(parsed)) continue;
+
+          if (parsed.type === "tool_start" && typeof parsed.name === "string") {
+            const name = parsed.name;
+            const label = typeof parsed.label === "string" ? parsed.label : name;
+            setToolActivity((prev) => [
+              ...prev,
+              { name, label, status: "running" },
+            ]);
+          } else if (
+            parsed.type === "tool_end" &&
+            typeof parsed.name === "string" &&
+            typeof parsed.ok === "boolean"
+          ) {
+            const name = parsed.name;
+            const ok = parsed.ok;
+            setToolActivity((prev) =>
+              prev.map((item) =>
+                item.name === name && item.status === "running"
+                  ? { ...item, status: ok ? "done" : "error" }
+                  : item
+              )
+            );
+          } else if (parsed.type === "done") {
+            // Build a full CopilotResponse-shaped object from the SSE event
+            const candidate: unknown = {
+              answer: parsed.answer,
+              cards: parsed.cards ?? [],
+              actions: parsed.actions ?? [],
+              context: parsed.context ?? [],
+              sources: parsed.sources ?? [],
+              conversationId: parsed.conversationId,
+            };
+
+            if (!isCopilotResponse(candidate)) {
+              throw new CopilotApiError(
+                "La estructura de respuesta no fue la esperada.",
+                200,
+                "unexpected_response"
+              );
+            }
+
+            if (candidate.conversationId) {
+              setActiveConversationId(candidate.conversationId);
+            }
+
+            const assistantMessage: CopilotMessage = {
+              id: `assistant-${Date.now()}`,
+              role: "assistant",
+              author: "Nancy Copilot",
+              time: formatTime(),
+              content: candidate.answer,
+              response: candidate,
+            };
+
+            setMessages((items) => [...items, assistantMessage]);
+            setIsAccessBlocked(false);
+            void loadConversations();
+
+            // Clear tool activity after 2 seconds
+            cleanupTimerRef.current = setTimeout(() => {
+              setToolActivity([]);
+              cleanupTimerRef.current = null;
+            }, 2000);
+          } else if (parsed.type === "error" && typeof parsed.message === "string") {
+            setError(parsed.message);
+          }
+        }
       }
-
-      const assistantMessage: CopilotMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        author: "Nancy Copilot",
-        time: formatTime(),
-        content: data.answer,
-        response: data,
-      };
-
-      setLatestResponse(data);
-      setMessages((items) => [...items, assistantMessage]);
-      setIsAccessBlocked(false);
-      void loadConversations();
     } catch (requestError) {
       console.error("Error consultando Nancy Copilot:", requestError);
       setIsAccessBlocked(
@@ -474,108 +542,81 @@ export function CopilotShell() {
     return () => window.cancelAnimationFrame(frame);
   }, [loadConversations]);
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (cleanupTimerRef.current !== null) {
+        clearTimeout(cleanupTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <main className="min-h-screen lg:h-screen lg:overflow-hidden" style={{ color: "var(--foreground)" }}>
-      <div className="mx-auto flex min-h-screen max-w-[1800px] flex-col px-4 py-4 sm:px-6 sm:py-6 lg:h-screen lg:px-6 lg:py-8">
-        <header className="mb-6 lg:mb-8">
+      <div className="mx-auto flex min-h-screen max-w-[1800px] flex-col px-4 py-3 sm:px-6 sm:py-4 lg:h-screen lg:px-6 lg:py-4">
+        <header className="mb-4">
           <div
-            className="overflow-hidden rounded-[28px] border px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6"
-            style={{
-              borderColor: "var(--border-soft)",
-              background:
-                "linear-gradient(135deg, rgba(184,161,127,0.10) 0%, rgba(42,64,89,0.08) 42%, rgba(255,255,255,0.02) 100%)",
-              boxShadow: "var(--shadow-panel)",
-            }}
+            className="flex h-16 items-center justify-between gap-3 border-b px-1"
+            style={{ borderColor: "var(--border)" }}
           >
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-center gap-3">
-                <div
-                  className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border shadow-[0_0_0_1px_rgba(255,255,255,0.03)]"
-                  style={{
-                    borderColor: "var(--border-soft)",
-                    backgroundColor: "var(--panel-soft)",
-                  }}
-                >
-                  <Image
-                    src="/brand/nancy-mark.png"
-                    alt="Nancy Copilot"
-                    fill
-                    className="object-cover"
-                    sizes="44px"
-                    priority
-                  />
-                </div>
-
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl lg:text-[2rem]">
-                      Nancy Copilot
-                    </h1>
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium"
-                      style={{
-                        borderColor: "var(--status-warning-border)",
-                        backgroundColor: "var(--status-warning-bg)",
-                        color: "var(--status-warning-text)",
-                      }}
-                    >
-                      <Bot className="h-3.5 w-3.5" />
-                      V1
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm sm:text-[15px]" style={{ color: "var(--foreground-soft)" }}>
-                    Base estructural para asistencia comercial con contexto interno.
-                  </p>
-                </div>
+            <div className="flex min-w-0 items-center gap-3">
+              <div
+                className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border"
+                style={{
+                  borderColor: "var(--border-soft)",
+                  backgroundColor: "var(--panel-soft)",
+                }}
+              >
+                <Image
+                  src="/brand/nancy-mark.png"
+                  alt="Nancy Copilot"
+                  fill
+                  className="object-cover"
+                  sizes="32px"
+                  priority
+                />
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
-                  href="/"
-                  style={{
-                    borderColor: "var(--border)",
-                    backgroundColor: "rgba(255,255,255,0.03)",
-                    color: "var(--foreground)",
-                  }}
-                >
-                  <ArrowLeft className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
-                  Monitor
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleToggleTheme}
-                  aria-label="Cambiar tema"
-                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition hover:bg-white/5"
-                  style={{
-                    borderColor: "var(--border)",
-                    backgroundColor: "rgba(255,255,255,0.03)",
-                    color: "var(--foreground)",
-                  }}
-                >
-                  {theme === "dark" ? (
-                    <SunMedium className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
-                  ) : (
-                    <Moon className="h-4 w-4" style={{ color: "var(--brand-blue)" }} />
-                  )}
-                </button>
-                <span
-                  className="inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium"
-                  style={{
-                    borderColor: "var(--border)",
-                    backgroundColor: "var(--card)",
-                    color: "var(--foreground-soft)",
-                  }}
-                >
-                  <LayoutDashboard className="h-4 w-4" style={{ color: "var(--brand-gold)" }} />
-                  Historial activo
-                </span>
+              <div className="min-w-0">
+                <h1 className="text-base font-semibold tracking-tight leading-none">
+                  Nancy Copilot
+                </h1>
+                <p className="mt-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                  Asistente comercial con contexto interno
+                </p>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link
+                className="inline-flex items-center gap-1.5 text-sm"
+                href="/"
+                style={{ color: "var(--muted)" }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Monitor
+              </Link>
+              <button
+                type="button"
+                onClick={handleToggleTheme}
+                aria-label="Cambiar tema"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors hover:border-[var(--border-strong)]"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--muted)",
+                }}
+              >
+                {theme === "dark" ? (
+                  <SunMedium className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </button>
             </div>
           </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)_360px]">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[288px_minmax(0,1fr)_288px]">
           <CopilotSidebar
             activeId={activeConversationId}
             isLoading={loadingHistory}
@@ -592,9 +633,8 @@ export function CopilotShell() {
             onSubmit={handleSubmit}
           />
           <CopilotContextPanel
-            actions={actions}
-            context={context}
-            metrics={mockMetrics}
+            toolActivity={toolActivity}
+            isLoading={isLoading}
           />
         </div>
       </div>

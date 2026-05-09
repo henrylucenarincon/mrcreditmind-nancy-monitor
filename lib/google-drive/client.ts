@@ -172,6 +172,18 @@ async function getAccessToken(config: GoogleDriveConfig) {
   return config.accessToken || getServiceAccountAccessToken(config);
 }
 
+export async function downloadDriveFileBinary(fileId: string): Promise<Buffer> {
+  const config = getGoogleDriveConfig();
+  const token = await getAccessToken(config);
+  const url = `${config.baseUrl}/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(`Drive download falló: ${response.status}`);
+  return Buffer.from(await response.arrayBuffer());
+}
+
 async function listDriveFiles(q: string, pageSize = 20): Promise<GoogleDriveFile[]> {
   const config = getGoogleDriveConfig();
   const token = await getAccessToken(config);

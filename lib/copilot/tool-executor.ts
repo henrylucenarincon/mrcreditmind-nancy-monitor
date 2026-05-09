@@ -1,6 +1,7 @@
 import type { CopilotToolResult } from "./types";
 import { funnelupRequest } from "./tools/funnelup-request";
 import { driveRequest } from "./tools/drive-request";
+import { readSpreadsheet } from "./tools/read-spreadsheet";
 import { isCopilotToolName, type CopilotToolName } from "./tool-registry";
 import { sanitizeErrorForLog } from "@/lib/security/masking";
 
@@ -58,6 +59,12 @@ async function executeKnownTool(
     const endpoint = getString(args, "endpoint");
     if (!method || !endpoint) return buildErrorResult(name, "Faltan method y endpoint.");
     return driveRequest({ method, endpoint, params: getStringRecord(args, "params"), body: getObject(args, "body") });
+  }
+
+  if (name === "read_spreadsheet") {
+    const fileId = getString(args, "fileId");
+    if (!fileId) return buildErrorResult(name, "Falta fileId.");
+    return readSpreadsheet(fileId);
   }
 
   return buildErrorResult(name, "Herramienta no reconocida.");

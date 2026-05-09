@@ -37,3 +37,9 @@ export type CopilotAction = {
   detail: string;
   status: "Listo" | "Revisar" | "Borrador";
 };
+
+export type ToolActivityItem = {
+  name: string;
+  label: string;
+  status: "running" | "done" | "error";
+};

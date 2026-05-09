@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { COPILOT_AGENT_INSTRUCTIONS } from "./prompts";
+import { buildUserSystemContext, type TeamMember } from "./team";
 import type {
   CopilotChatMessage,
   CopilotResponse,
@@ -7,11 +8,17 @@ import type {
   CopilotToolResult,
 } from "./types";
 import { executeCopilotTool } from "./tool-executor";
-import { COPILOT_ANTHROPIC_TOOLS } from "./tool-registry";
+import { ALL_COPILOT_ANTHROPIC_TOOLS } from "./tool-registry";
 
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOOL_ROUNDS = 8;
-const MAX_HISTORY_MESSAGES = 20;
+const MAX_TOOL_ROUNDS = 5;
+const MAX_HISTORY_MESSAGES = 12;
+const MAX_TOOL_RESULT_CHARS = 4000;
+
+export type CopilotCallbacks = {
+  onToolStart?: (name: string, input: Record<string, unknown>) => void;
+  onToolEnd?: (name: string, ok: boolean) => void;
+};
 
 function getAnthropicClient() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -65,21 +72,28 @@ function buildFinalResponse(
   };
 }
 
-export async function runClaudeCopilot(input: {
-  message: string;
-  history?: CopilotChatMessage[];
-}): Promise<CopilotResponse> {
+export async function runClaudeCopilot(
+  input: {
+    message: string;
+    history?: CopilotChatMessage[];
+  },
+  callbacks?: CopilotCallbacks,
+  teamMember?: TeamMember
+): Promise<CopilotResponse> {
   const { client, model } = getAnthropicClient();
   const messages = buildMessages(input.history, input.message);
+  const systemPrompt = teamMember
+    ? `${COPILOT_AGENT_INSTRUCTIONS}\n\n---\n${buildUserSystemContext(teamMember)}`
+    : COPILOT_AGENT_INSTRUCTIONS;
   const toolResults: Array<CopilotToolResult<unknown>> = [];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const response = await client.messages.create({
       model,
-      system: COPILOT_AGENT_INSTRUCTIONS,
+      system: systemPrompt,
       messages,
-      tools: COPILOT_ANTHROPIC_TOOLS,
-      max_tokens: 4096,
+      tools: ALL_COPILOT_ANTHROPIC_TOOLS,
+      max_tokens: 2048,
     });
 
     if (response.stop_reason === "end_turn") {
@@ -98,20 +112,29 @@ export async function runClaudeCopilot(input: {
 
     const toolResultContents = await Promise.all(
       toolUseBlocks.map(async (block) => {
-        const executed = await executeCopilotTool(
-          block.name,
-          block.input as Record<string, unknown>
-        );
-        toolResults.push(executed.result);
-        return {
-          type: "tool_result" as const,
-          tool_use_id: block.id,
-          content: JSON.stringify({
-            tool: executed.result.tool,
-            source: executed.result.source,
-            data: executed.result.data,
-          }),
-        };
+        const blockInput = block.input as Record<string, unknown>;
+        callbacks?.onToolStart?.(block.name, blockInput);
+        let ok = true;
+        try {
+          const executed = await executeCopilotTool(block.name, blockInput);
+          toolResults.push(executed.result);
+          callbacks?.onToolEnd?.(block.name, true);
+          const raw = JSON.stringify({ tool: executed.result.tool, source: executed.result.source, data: executed.result.data });
+          return {
+            type: "tool_result" as const,
+            tool_use_id: block.id,
+            content: raw.length > MAX_TOOL_RESULT_CHARS ? raw.slice(0, MAX_TOOL_RESULT_CHARS) + "... [truncado]" : raw,
+          };
+        } catch (toolError) {
+          ok = false;
+          callbacks?.onToolEnd?.(block.name, false);
+          return {
+            type: "tool_result" as const,
+            tool_use_id: block.id,
+            content: JSON.stringify({ error: "Tool execution failed" }),
+            is_error: true,
+          };
+        }
       })
     );
 
@@ -119,7 +142,7 @@ export async function runClaudeCopilot(input: {
   }
 
   return buildFinalResponse(
-    "Revisé varias fuentes pero no pude cerrar una respuesta final dentro del límite de herramientas. Te dejo el contexto disponible — intenta con una pregunta más específica.",
+    "Consulté varias fuentes pero no encontré los datos suficientes para darte una respuesta completa. Puede ser que la información no esté en FunnelUP ni en Drive en un formato que pueda consolidar directamente. ¿Puedes indicarme dónde está ese dato (un Sheet, una carpeta, un campo específico) y lo busco ahí?",
     toolResults
   );
 }

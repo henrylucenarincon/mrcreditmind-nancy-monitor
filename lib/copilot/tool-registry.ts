@@ -1,6 +1,7 @@
 export const COPILOT_TOOL_NAMES = [
   "funnelup_request",
   "drive_request",
+  "read_spreadsheet",
 ] as const;
 
 export type CopilotToolName = (typeof COPILOT_TOOL_NAMES)[number];
@@ -79,6 +80,29 @@ export const COPILOT_ANTHROPIC_TOOLS: AnthropicTool[] = [
       required: ["method", "endpoint"],
     },
   },
+];
+
+export const COPILOT_ANTHROPIC_TOOLS_EXTRA: AnthropicTool[] = [
+  {
+    name: "read_spreadsheet",
+    description:
+      "Lee el contenido de una hoja de cálculo de Google Drive. Funciona con archivos Google Sheets (.gsheet) Y archivos Excel (.xlsx, .xls). Úsala siempre que necesites leer el contenido de una tabla, independientemente del formato.",
+    input_schema: {
+      type: "object",
+      properties: {
+        fileId: {
+          type: "string",
+          description: "El ID del archivo en Google Drive.",
+        },
+      },
+      required: ["fileId"],
+    },
+  },
+];
+
+export const ALL_COPILOT_ANTHROPIC_TOOLS: AnthropicTool[] = [
+  ...COPILOT_ANTHROPIC_TOOLS,
+  ...COPILOT_ANTHROPIC_TOOLS_EXTRA,
 ];
 
 export function isCopilotToolName(value: string): value is CopilotToolName {

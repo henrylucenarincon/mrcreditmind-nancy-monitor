@@ -1,6 +1,24 @@
 import { hasFunnelUpConfig, requestFunnelUpApi } from "@/lib/funnelup/client";
 import type { CopilotToolResult } from "../types";
 
+const MAX_ARRAY_ITEMS = 10;
+
+function limitArrays(data: unknown): unknown {
+  if (typeof data !== "object" || data === null) return data;
+  if (Array.isArray(data)) return data.slice(0, MAX_ARRAY_ITEMS);
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (Array.isArray(value) && value.length > MAX_ARRAY_ITEMS) {
+      result[key] = value.slice(0, MAX_ARRAY_ITEMS);
+      result[`${key}_total`] = value.length;
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 export async function funnelupRequest(input: {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
@@ -26,7 +44,7 @@ export async function funnelupRequest(input: {
         status: result.ok ? "used" : "pending",
       },
       data: result.ok
-        ? result.data
+        ? limitArrays(result.data)
         : { error: `FunnelUP respondió ${result.status}`, details: result.data },
     };
   } catch (error) {

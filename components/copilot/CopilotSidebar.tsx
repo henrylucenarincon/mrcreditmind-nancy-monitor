@@ -1,11 +1,5 @@
-import { Clock3, MessageSquareText, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { CopilotHistoryItem } from "./types";
-
-const statusTone: Record<CopilotHistoryItem["status"], string> = {
-  Activo: "var(--status-success-bg)",
-  Pendiente: "var(--status-warning-bg)",
-  Cerrado: "var(--status-info-bg)",
-};
 
 export function CopilotSidebar({
   items,
@@ -24,56 +18,50 @@ export function CopilotSidebar({
 }) {
   return (
     <aside
-      className="flex min-h-0 flex-col rounded-3xl border p-4"
+      className="flex min-h-0 flex-col rounded-2xl border"
       style={{
         borderColor: "var(--border)",
-        backgroundColor: "rgba(255,255,255,0.03)",
+        backgroundColor: "var(--card)",
+        boxShadow: "var(--shadow-soft)",
       }}
     >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <p
-            className="text-[11px] font-medium uppercase tracking-[0.18em]"
-            style={{ color: "var(--muted)" }}
-          >
-            Historial
-          </p>
-          <h2 className="mt-1 text-lg font-semibold">Conversaciones</h2>
-        </div>
+      {/* Header */}
+      <div
+        className="flex items-center justify-between gap-3 border-b px-4 py-3.5"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <p
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--muted)" }}
+        >
+          Conversaciones
+        </p>
         <button
           onClick={onCreate}
-          className="rounded-full border px-2.5 py-1 text-xs font-medium"
+          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
           style={{
-            borderColor: "var(--border)",
-            backgroundColor: "var(--card)",
-            color: "var(--foreground-soft)",
-            opacity: isDisabled ? 0.55 : 1,
+            borderColor: "rgba(184,161,127,0.40)",
+            color: "var(--brand-gold)",
+            opacity: isDisabled ? 0.5 : 1,
           }}
           disabled={isDisabled}
           type="button"
         >
-          <span className="inline-flex items-center gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
-            Nueva
-          </span>
+          <Plus className="h-3 w-3" />
+          Nueva
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+      {/* List */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {isLoading ? (
-          <div
-            className="rounded-2xl border p-4 text-sm"
-            style={{ borderColor: "var(--border)", backgroundColor: "var(--card)", color: "var(--muted)" }}
-          >
+          <div className="px-3 py-4 text-xs" style={{ color: "var(--muted)" }}>
             Cargando historial...
           </div>
         ) : null}
 
         {!isLoading && items.length === 0 ? (
-          <div
-            className="rounded-2xl border p-4 text-sm leading-6"
-            style={{ borderColor: "var(--border)", backgroundColor: "var(--card)", color: "var(--muted)" }}
-          >
+          <div className="px-3 py-4 text-xs leading-5" style={{ color: "var(--muted)" }}>
             No hay conversaciones guardadas.
           </div>
         ) : null}
@@ -83,45 +71,38 @@ export function CopilotSidebar({
 
           return (
             <button
-              className="w-full rounded-2xl border p-4 text-left"
+              className="group relative w-full rounded-xl px-3 py-2.5 text-left transition-colors"
               key={item.id}
               onClick={() => onSelect(item.id)}
               disabled={isDisabled}
               style={{
-                borderColor: isActive ? "var(--status-warning-border)" : "var(--border)",
-                backgroundColor: isActive ? "var(--status-warning-bg)" : "var(--card)",
-                boxShadow: isActive ? "0 0 0 1px rgba(184,161,127,0.06)" : "none",
-                opacity: isDisabled ? 0.65 : 1,
+                backgroundColor: isActive ? "rgba(184,161,127,0.08)" : "transparent",
+                opacity: isDisabled ? 0.6 : 1,
               }}
               type="button"
             >
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{item.title}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
-                    <MessageSquareText className="h-3.5 w-3.5" />
-                    {item.source}
-                  </p>
-                </div>
+              {/* Gold left border for active */}
+              {isActive ? (
                 <span
-                  className="shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium"
-                  style={{
-                    borderColor: "var(--border)",
-                    backgroundColor: statusTone[item.status],
-                    color: "var(--foreground)",
-                  }}
-                >
-                  {item.status}
+                  className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full"
+                  style={{ backgroundColor: "var(--brand-gold)" }}
+                />
+              ) : null}
+
+              <div className="flex items-baseline justify-between gap-2 pl-1">
+                <p className="truncate text-sm font-medium" style={{ color: isActive ? "var(--foreground)" : "var(--foreground)" }}>
+                  {item.title}
+                </p>
+                <span className="shrink-0 text-[11px]" style={{ color: "var(--muted)" }}>
+                  {item.time}
                 </span>
               </div>
 
-              <p className="line-clamp-2 text-sm leading-5" style={{ color: "var(--foreground-soft)" }}>
+              <p
+                className="mt-0.5 truncate pl-1 text-xs leading-4"
+                style={{ color: "var(--muted)" }}
+              >
                 {item.summary}
-              </p>
-
-              <p className="mt-3 flex items-center gap-1.5 text-[11px]" style={{ color: "var(--muted)" }}>
-                <Clock3 className="h-3.5 w-3.5" />
-                {item.time}
               </p>
             </button>
           );
